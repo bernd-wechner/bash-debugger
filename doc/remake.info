@@ -1,0 +1,2972 @@
+This is remake.info, produced by makeinfo version 6.7 from remake.texi.
+
+INFO-DIR-SECTION Programming & development tools.
+START-INFO-DIR-ENTRY
+* remake: (the GNU Make debugger).                     The GNU Remake extensions and debugger.
+END-INFO-DIR-ENTRY
+
+This file documents the GNU MAKE extensions and debugger, Remake
+
+   This is the 4.3+dbg-1.6 Edition, October 2021, of 'MAKE extenstions
+and Debugging with REMAKE: the GNU Make Debugger'
+
+   Copyright (C) 2004, 2005, 2011, 2012, 2020 Rocky Bernstein for the
+Free Software Foundation.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being "Free Software" and "Free Software Needs Free
+Documentation", with the Front-Cover Texts being "A GNU Manual," and
+with the Back-Cover Texts as in (a) below.
+
+   (a) The Free Software Foundation's Back-Cover Text is: "You have
+freedom to copy and modify this GNU Manual, like GNU software.  Copies
+published by the Free Software Foundation raise funds for GNU
+development."
+
+
+File: remake.info,  Node: Top,  Next: Summary,  Prev: (dir),  Up: (dir)
+
+Using the GNU Make debugger, Remake
+***********************************
+
+This file describes the GNU Make debugger, Remake
+
+   This is the 4.3+dbg-1.6 Edition, October 2021
+
+   Copyright (C) 2004, 2005, 2006, 2011, 2012, 2020 Rocky Bernstein
+
+* Menu:
+
+* Summary::                     Overview of Debugger with a sample session
+
+* Features::                    Extensions to GNU Make
+* Invocation::                  Getting in and out and GNU Make command options
+* Debugger Command Reference::  the GNU Make debugger command reference
+
+* Front Ends::                  Using the GNU Make debugger from a front-end user interface
+
+* Make Debugger Bugs::          Reporting bugs
+* History and Acknowledgments:: History and Acknowledgments
+
+Indexes (nodes containing large menus)
+* Command Index::             An item for each command name.
+* General Index::             An item for each concept.
+
+
+File: remake.info,  Node: Summary,  Next: Features,  Up: Top
+
+1 Summary of the GNU Make Debugger
+**********************************
+
+The purpose of a debugger such as the GNU Make debugger is to allow you
+to see what is going on "inside" the GNU Make debugger when it processes
+a Makefile.
+
+   The GNU Remake debugger can do four main kinds of things (plus other
+things in support of these) to help you catch bugs in the act:
+
+   * Have GNU Remake stop at specified places such as targets.
+
+   * Examine what has happened, when GNU Remake has stopped or
+     encounters an error.
+
+   * Change the internal state of things inside GNU Remake, so you can
+     experiment with correcting the effects of one bug and go on to
+     discover another.
+
+   Although you can use the the GNU Make debugger to debug Makefiles, it
+can also be used just as a front-end for learning more about Makefiles
+and writing them with GNU Remake.
+
+   A degenerate and less-interactive form of debugging is _tracing_ in
+which one passively watches some of the steps that go on in processing a
+Makefile.
+
+* Menu:
+
+* Sample Sessions::             Sample GNU Make Debugger sessions
+
+
+File: remake.info,  Node: Sample Sessions,  Up: Summary
+
+1.1 Sample GNU Remake Debugger Sessions
+=======================================
+
+You can use this manual at your leisure to read all about the GNU Make
+debugger.  However, a handful of commands are enough to get started
+using the debugger.  This chapter illustrates those commands.
+
+* Menu:
+
+* Tracing Not::              How NOT to debug your Makefile
+* Tracing::                  Using -trace or -x on a simple example
+* Tracing a Real Makefile::  A Larger Real-World Makefile Trace.
+* Simple Debugging::         Getting into the Debugger (-debugging)
+* Debugging Make Variables:: Seeing Make variable expansions at various levels
+* Debugging Shell Commands:: Debugging the shell commands that Make runs
+
+
+File: remake.info,  Node: Tracing Not,  Next: Tracing,  Up: Sample Sessions
+
+1.1.1 How _not_ to debug your Makefile
+--------------------------------------
+
+Before we get into debugging proper, we'll discuss tracing and a pitfall
+the author once made in his first attempt to debug a large and
+mysterious 'Makefile'.  Chances you may have happened to you too.
+
+   A simplified form of debugging is _tracing_.  Often this may be good
+enough to understand what might have gone wrong.  In fact, in the Unix
+shell world ('tcsh', 'csh', 'bash', 'sh') prior to my debugger for bash
+(<http://bashdb.sourceforge.net>) tracing along with print statements
+was about all that was available to debug a program.
+
+   GNU Make has had for a long time a "debug" flag ('--debug' or '-d')
+which prints "lots of debugging information."  For the unwary one might
+think you just add this simple option and that's going to do what you
+want.  Wrong!(1)
+
+   Alas, the '--debug' option gives way too much information to be
+helpful.  Furthermore, debug-flag information _omits_ information that
+would be helpful.
+
+   To elaborate upon this, here is a simple small 'Makefile' with an
+invalid shell command in it:
+
+     1: # Makefile to show off tracing
+     2: .PHONY: all
+     3: all: foo
+     4:
+     5: foo:
+     6: 	@case $(MAKE) in \
+     7: 	*/remake|remake) echo "Enlightened!";; \
+     8: 	*/make|make) echo "This is what most folks use.";; \
+     9: 	esac
+     10: 	@bogus-command
+
+   But now let's see what happens when we run "debug" from an unpatched
+GNU Make:
+
+     $ /usr/bin/make -d -f test1.mk
+     Copyright (C) 2006  Free Software Foundation, Inc.
+     This is free software; see the source for copying conditions.
+     There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+     PARTICULAR PURPOSE.
+
+     This program built for i486-pc-linux-gnu
+     Reading makefiles...
+     Reading makefile `test1.mk'...
+     Updating makefiles....
+      Considering target file `test1.mk'.
+       Looking for an implicit rule for `test1.mk'.
+       Trying pattern rule with stem `test1.mk'.
+       Trying implicit prerequisite `test1.mk.o'.
+       Trying pattern rule with stem `test1.mk'.
+       Trying implicit prerequisite `test1.mk.c'.
+
+     ... over 350 lines later ...
+
+      No need to remake target `test1.mk'.
+     Updating goal targets....
+     Considering target file `all'.
+      File `all' does not exist.
+       Considering target file `foo'.
+        File `foo' does not exist.
+        Finished prerequisites of target file `foo'.
+       Must remake target `foo'.
+     Putting child 0x08acced8 (foo) PID 307 on the chain.
+     Live child 0x08acced8 (foo) PID 307
+     This is what most folks use.
+     Got a SIGCHLD; 1 unreaped children.
+     Putting child 0x095b1310 (foo) PID 13440 on the chain.
+     Live child 0x095b1310 (foo) PID 13440
+     Reaping winning child 0x095b1310 PID 13440
+     make: bogus-command: Command not found
+     Got a SIGCHLD; 1 unreaped children.
+     Live child 0x095b1310 (foo) PID 13441
+     Reaping losing child 0x095b1310 PID 13441
+     make: *** [foo] Error 127
+     Removing child 0x095b1310 PID 13441 from chain.
+
+   The output would have been about twice as long were it not for the
+fact that we declared 'all' a "phony" target!
+
+   Clearly this information referring to rule stems, implicit
+prerequisites, 'SIGCHLD', pids, and unreaped children is intended for
+someone who is well versed with the internals of GNU Make.
+
+   But even for someone such as myself who has become more knowledgeable
+(through writing this debugger), it _still_ isn't all that helpful.  In
+the midst of the above jumble, the program reports:
+     make: bogus-command: command not found
+   Say what?  Okay, but where in the source 'Makefile' did that come
+from?  Since we added the debug output we see "'foo'" listed beforehand
+after skipping hundreds of lines, but in a normal make, there would have
+been no mention of "'foo'."  In our simple example tracking down the
+location is easy.  But when you have a 'Makefile' which is hundreds of
+lines long as any Makefile is when it is generated from 'automake', it
+would be nice to list the line in the Makefile and full filename as well
+as the target name.
+
+   ---------- Footnotes ----------
+
+   (1) From the standpoint of a nice user interface, this options should
+get replaced with '--trace'.  At present, this change is probably a
+little to young to to make such a bold change, tempting as it is to do.
+
+
+File: remake.info,  Node: Tracing,  Next: Tracing a Real Makefile,  Prev: Tracing Not,  Up: Sample Sessions
+
+1.1.2 Sample GNU Remake Trace Sessions
+--------------------------------------
+
+Okay so now that we know what _not_ to do, lets delve into things may be
+more helpful.
+
+   There are variants of the '--debug' command option that provide
+shorter and more-interesting information.  One is called "basic"
+tracing.  Another is the '--just-print' option.
+
+   Again here's the sample Makefile:
+
+     1: # Makefile to show off tracing
+     2: .PHONY: all
+     3: all: foo
+     4:
+     5: foo:
+     6: 	@case $(MAKE) in \
+     7: 	*/remake|remake) echo "Enlightended!";; \
+     8: 	*/make|make) echo "This is what most folks use.";; \
+     9: 	esac
+     10: 	@bogus-command
+
+   In an unpatched GNU Make version 3.81 (and earlier) GNU Make,
+'--just-print' gives this:
+
+     $ make -just-print -f test1.mk
+     case make in \
+     */remake|remake) echo "Enlightended!";; \
+     */make|make) echo "This is what most folks use.";; \
+     esac
+     This is what most folks use.
+     bogus-command
+
+   Well, not much different from the original Makefile, except that
+information about where this gets run from is curiously missing.  If
+there had been several targets that had commands, from the output it
+would not be possible to determine which command was associated with
+which target.
+
+   Here's what we give instead:
+
+     $ remake -just-print -f test.mk1
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     case make in \
+     */remake|remake) echo "Enlightended!";; \
+     */make|make) echo "This is what most folks use.";; \
+     esac
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+     This is what most folks use.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     bogus-command
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+   What's different is that we separate the commands that are about to
+be run, such as 'case make in...' from the output '"This is what...'"
+This may be a little bit subtle, but from the above output it is more
+apparent that there are _two_ separate commands(1) that are getting run
+from target 'foo': one at line 7 and another at line 10.
+
+   Now let's try '--debug=basic' alluded to at the beginning of this
+section.  In an unpatched GNU Make version 3.82, we get this:
+
+     $ make -debug=basic -f test1.mk
+     GNU Make 3.82
+     Built for i686-pc-linux-gnu
+     Copyright (C) 2010  Free Software Foundation, Inc.
+     License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+     This is free software: you are free to change and redistribute it.
+     There is NO WARRANTY, to the extent permitted by law.
+     Reading makefiles...
+     Updating goal targets....
+      File `all' does not exist.
+        File `foo' does not exist.
+       Must remake target `foo'.
+     Invoking recipe from /tmp/test1.mk:6 to update target `foo'.
+     This is what most folks use.
+     make: bogus-command: Command not found
+     make: *** [foo] Error 127
+
+   The '--debug=basic' command-line switch also works in GNU Remake as
+well if that's all you want..(2)
+
+   But now let's try the new kind of trace we provide in this patched
+GNU Remake.  We use the new option '--trace'.  The short-form option
+format '-x' is the same as '--trace' and '--trace=normal'
+
+     /usr/local/bin/remake -x -f test1.mk
+     ...
+     Reading makefiles...
+     Updating goal targets....
+      /tmp/test1.mk:3	File `all' does not exist.
+        /tmp/test1.mk:5	File `foo' does not exist.
+       /tmp/test1.mk:5	Must remake target `foo'.
+     Invoking recipe from test1.mk:6 to update target `foo'.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     case /tmp/../make in \
+     */remake|remake) echo "Enlightened!";; \
+     */make|make) echo "This is what most folks use.";; \
+     esac
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+     This is what most folks use.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     bogus-command
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+     remake: bogus-command: Command not found
+     test1.mk:5: *** [foo] Error 127
+
+     #0  foo at /tmp/test1.mk:5
+     #1  all at /tmp/test1.mk:3
+     Command-line arguments:
+     	"/usr/local/bin/remake -x -f test1.mk"
+
+   In some ways this is just a combination of the enhanced'--just-print'
+option combined with the location-enhanced '--debug=basic' information.
+
+   What is completely new is the shell tracing information and
+information given when we hit an error.  After the error and we report
+the return code (127), the stack of targets is listed.  We were working
+on target 'foo' on line 5 of file '/tmp/test1.mk' which was rebuilt
+because we were making target 'all' on line 3 of file '/tmp/test1.mk'.
+
+   In other words, when we hit the error, the above trace gives what
+targets were in the process of getting considered at the error, and how
+the program was run.
+
+   One last subtlety that you might not have noticed is that we echoed
+the command 'bogus-command' even though the original makefile had this
+set to be silent, in particular by preceding that command with an @.
+
+   When tracing as with '--just-print', we override any silent execution
+making execution more verbose.  This information is usually helpful in
+tracing.
+
+   Although I think that the above may be improved, it is far better
+than what has previously been available in GNU make.  In my own
+experience, just adding that '--trace' or '-x' option is enough to let
+me find problems.  No need to bring out the heavy artillery in a
+full-fledged debugger.
+
+   Still, it is nice to have additional power available, so read on...
+
+   ---------- Footnotes ----------
+
+   (1) or "jobs" in the terminology used when we used '--debug'
+
+   (2) Actually the output is a little bit different here since we give
+a more context about the position when a fatal error is encountered.
+
+
+File: remake.info,  Node: Tracing a Real Makefile,  Next: Simple Debugging,  Prev: Tracing,  Up: Sample Sessions
+
+1.1.3 A Larger Real-World Makefile Trace
+----------------------------------------
+
+GNU Make and GNU Remake work like many other interpreters.  First
+Makefiles are read in and parsed and then they are "executed" which in
+GNU Make means that dependency checks are done and actions are performed
+based on those checks.  However there is quite a bit work that may be
+done just in portion which reads in the Makefiles and performs variable
+expansion.  Most of the time this information is will not be of much
+use.  But if you should be interested in this phase, use the flag
+'--trace=read'.
+
+     $ remake -trace=read
+     GNU Make 3.82+dbg-0.5
+     Built for i686-pc-linux-gnu
+     Copyright (C) 2010  Free Software Foundation, Inc.
+     License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+     This is free software: you are free to change and redistribute it.
+     There is NO WARRANTY, to the extent permitted by law.
+     Reading makefile `Makefile'...
+     Reading makefile `.deps/alloca.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/getloadavg.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/ar.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/arscan.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/break.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/buildargv.Po' (search path) (no ~ expansion)...
+     Reading makefile `.deps/cmd.Po' (search path) (no ~ expansion)...
+     ...
+
+   Now let's do a simple trace on a real example -- the Makefile the
+'doc' directory for the GNU Make + Debugger.  Here it is in its
+entirety:
+     $ remake -trace
+     GNU Make 3.82+dbg-0.5
+     Built for i686-pc-linux-gnu
+     Copyright (C) 2010  Free Software Foundation, Inc.
+     License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+     This is free software: you are free to change and redistribute it.
+     There is NO WARRANTY, to the extent permitted by law.
+     Reading makefiles...
+     Updating goal targets....
+      /tmp/remake/doc/Makefile:245	File `all' does not exist.
+        /tmp/remake/doc/Makefile:545	File `all-am' does not exist.
+       /tmp/remake/doc/Makefile:545	Must remake target `all-am'.
+       /tmp/remake/doc/Makefile:545	Successfully remade target file `all-am'.
+     /tmp/remake/doc/Makefile:245	Must remake target `all'.
+     /tmp/remake/doc/Makefile:245	Successfully remade target file `all'.
+     remake: Nothing to be done for `all'.
+     $
+
+   As before, after 'Updating goal targets...' we show the position in
+the Makefile '(/tmp/remake/doc/Makefile:245)' of where target 'all'
+appears and we see that this depends on target 'all-am' which must also
+be remade.
+
+   Above, no shell commands needed to get run.  So let us get just a
+little more complex and make the HTML pages which shows some running
+some shell code:
+
+     $ remake -trace remake.html
+     GNU Make 3.82+dbg-0.5
+     Built for i686-pc-linux-gnu
+     Copyright (C) 2010  Free Software Foundation, Inc.
+     License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+     This is free software: you are free to change and redistribute it.
+     There is NO WARRANTY, to the extent permitted by law.
+     Reading makefiles...
+     Updating goal targets....
+      Prerequisite `remake.texi' is newer than target `remake.html'.
+     /tmp/remake/doc/Makefile:369	Must remake target `remake.html'.
+     Invoking recipe from Makefile:370 to update target `remake.html'.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     rm -rf remake.htp
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     if /bin/sh /tmp/remake/config/missing --run makeinfo --html   -I . \
+      -o remake.htp `test -f 'remake.texi' || echo './'`remake.texi; \
+     then \
+       rm -rf remake.html; \
+       if test ! -d remake.htp && test -d remake; then \
+         mv remake remake.html; else mv remake.htp remake.html; fi; \
+     else \
+       if test ! -d remake.htp && test -d remake; then \
+         rm -rf remake; else rm -Rf remake.htp remake.html; fi; \
+       exit 1; \
+     fi
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+     /tmp/remake/doc/Makefile:369	Successfully remade target file `remake.html'.
+     $
+
+   To make 'remake.html' we need to make 'remake.texi', but that file
+exists already.  Then we remove file 'remake.htp'.  That is shown in the
+lines:
+
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     rm -rf remake.htp
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+   There is no output from running this command which would appear next.
+Instead, we see:
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+   which means we are about to runn a second shell command for this
+target:
+
+     if /bin/sh /tmp/remake/config/missing --run makeinfo --html   -I . \
+      -o remake.htp `test -f 'remake.texi' || echo './'`remake.texi; \
+     then \
+       rm -rf remake.html; \
+       if test ! -d remake.htp && test -d remake; then \
+         mv remake remake.html; else mv remake.htp remake.html; fi; \
+     else \
+       if test ! -d remake.htp && test -d remake; then \
+         rm -rf remake; else rm -Rf remake.htp remake.html; fi; \
+       exit 1; \
+     fi
+
+   The backslashes in the above are there because this multi-line 'if'
+statement is passed off to the shell as one command.
+
+
+File: remake.info,  Node: Simple Debugging,  Next: Debugging Make Variables,  Prev: Tracing a Real Makefile,  Up: Sample Sessions
+
+1.1.4 Simple GNU Remake Debug Sessions
+--------------------------------------
+
+Now let's go into the debugger.  To do this, use the '--debugger' or
+'-X' option.  Again we'll use the Makefile from the source code of this
+distribution.
+
+     $  remake -debugger
+     ...
+     Reading makefiles...
+     Updating makefiles....
+     Updating goal targets....
+
+     -> (/tmp/remake/Makefile:471)
+     Makefile: Makefile.in config.status
+     remake<0>
+
+   Before the prompt 'remake<0>', we show the position in the file
+'(/tmp/remake/Makefile:471)' of the target 'Makefile'.  We also show the
+dependencies of the target 'Makefile', namely: 'Makefile.in' and
+'config.status'.  The "0" in the prompt 'remake<0>' is the command
+history number it increments as we enter commands.
+
+   Before the position are two dashes '->'.  This indicates that we have
+not done prerequisite checking for this target yet.  Later we will come
+across other two-character icons like '--', '++', and '<-', to name few.
+But to get full information about why were are stopped, you can use the
+command 'info program':
+
+     remake<0> info program
+     Starting directory `/tmp/remake'
+     Program invocation:
+     	/tmp/remake/./remake  --debugger
+     Recursion level: 0
+     Program stopped at a breakpoint before prerequisite checking.
+     remake<1>
+
+   Notice that the prompt now lists "1" since we entered a command.
+
+   We can use the 'step' command, (see *note Step::), to progress a
+little in the interpretation or execution of the makefile:
+     remake<2> step
+     -> (/tmp/Makefile:457)
+     Makefile.in: Makefile.am config/gettext.m4 ... aclocal.m4
+     -> (/tmp/Makefile:488)
+     remake<3> step
+     -> (/tmp/Makefile:486)
+     aclocal.m4: config/dospaths.m4 config/gettext.m4 ...
+     remake<4> step
+
+   One subtlety in the output above.  In the 'Makefile' at line 486 you
+will see this:
+
+     $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+
+   In the location and dependent targets reported by GNU Remake above,
+variables have been expanded.
+
+   Let's recap where we are right now.  Target 'Makefile' needs to build
+dependency 'Makefile.in' and that depends on target 'aclocal.m4'.  We
+have now stepped into and stopped at that target.
+
+   You can see this dependency nesting using the 'where' command:
+
+     remake<2> where
+     =>#0  aclocal.m4 at /tmp/remake/Makefile:486
+       #1  Makefile.in at /tmp/remake/Makefile:457
+       #2  Makefile at /tmp/remake/Makefile:471
+
+   If stepping is going too slowly, one can use 'next' or set a
+breakpoint at a target.  Let's restart the program and then go directly
+to target 'config.h.in' which is where we will see something else of
+interest.
+
+     remake<3> restart
+     Changing directory to /tmp/remake and restarting...
+     GNU Make 3.82+dbg-0.5
+     Built for i686-pc-linux-gnu
+     ...
+     Reading makefiles...
+     Updating makefiles....
+
+     -> (/tmp/remake/Makefile:471)
+     Makefile: Makefile.in config.status
+     remake<0> continue config.h.in
+     Breakpoint 1 on target config.h.in: file Makefile, line 499.
+     Updating goal targets....
+      /tmp/remake/Makefile:450	File `all' does not exist.
+
+     -> (/tmp/remake/Makefile:499)
+     config.h.in: config/dospaths.m4 ...
+     remake<1> step
+     -> (/tmp/remake/Makefile:499)
+     remake<2> step
+        Prerequisite `stamp-h1' is newer than target `config.h'.
+       /tmp/Makefile:490	Must remake target `config.h'.
+     Invoking recipe from Makefile:491 to update target `config.h'.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     if test ! -f config.h; then \
+       rm -f stamp-h1; \
+       /tmp/remake/./remake  stamp-h1; \
+     else :; fi
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+     ++ (/tmp/remake/Makefile:490)
+     config.h
+     remake<2>
+
+   Before the location we now have two pluses, '++'.  This means that
+the code shown above in between '##>>>>'...  and '##<<<<'...  is about
+to be run.
+
+   If you want the full details about a target, 'config.h.in' at this
+point in time, one can use the 'target' (*note Target::) command:
+     remake<4> target
+
+     config.h: stamp-h1
+     #  Implicit rule search has not been done.
+     #  Implicit/static pattern stem: `'
+     #  Last modified 2011-03-21 18:10:08
+     #  File has not been updated.
+     # automatic
+     # @ := config.h
+     # automatic
+     # % :=
+     # automatic
+     # * :=
+     # automatic
+     # + := stamp-h1
+     # automatic
+     # | :=
+     # automatic
+     # < := stamp-h1
+     # automatic
+     # ^ := stamp-h1
+     # automatic
+     # ? := stamp-h1
+     #  commands to execute (from `Makefile', line 489):
+     	@if test ! -f $@; then \
+     	rm -f stamp-h1; \
+     	$(MAKE) $(AM_MAKEFLAGS) stamp-h1; \
+     	else :; fi
+
+   I could have gotten the same output explicitly giving a target name
+such as 'target config.h', or used the GNU Make automatic variable name
+'@', e.g.  'target @'.
+
+   And we don't have to be stopped on a target to get information about
+a target:
+
+     remake<4> target Makefile
+     Makefile: Makefile.in config.status
+     #  Precious file (prerequisite of .PRECIOUS).
+     #  Implicit rule search has not been done.
+     #  Implicit/static pattern stem: `'
+     #  Last modified 2011-03-25 17:57:09
+     #  File has been updated.
+     #  Successfully updated.
+     # automatic
+     #  := Makefile
+     # automatic
+     # % :=
+     # automatic
+     # * :=
+     # automatic
+     # + := Makefile.in config.status
+     # automatic
+     # | :=
+     # automatic
+     # < := Makefile.in
+     # automatic
+     # ^ := Makefile.in config.status
+     # automatic
+     # ? :=
+     #  commands to execute (from `Makefile', line 470):
+     	@case '$?' in \
+     	*config.status*) \
+     	echo ' $(SHELL) ./config.status'; \
+     	$(SHELL) ./config.status;; \
+     	*) \
+     	echo ' cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe)'; \
+     	cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe);; \
+     	esac;
+
+   However information may change depending on where 'remake' is.  In
+particular note that for target 'config.h' we see "File has not been
+updated", while for target 'Makefile', we get "File has been updated".
+
+   This means that we are finished with target 'Makefile', but not
+target 'config.h'.
+
+
+File: remake.info,  Node: Debugging Make Variables,  Next: Debugging Shell Commands,  Prev: Simple Debugging,  Up: Sample Sessions
+
+1.1.5 Debugging Make Variables
+------------------------------
+
+We've seen we can get information about GNU Remake's targets.  We can
+also get information about GNU Remake's variables.  That is done with
+the 'print' command.  (See *note Print::.)
+
+       remake<4> print MAKE
+       (origin default) MAKE = $(MAKE_COMMAND)
+
+   The '(origin default)' means this is a built-in definition.  There is
+another print which does full expansion of the variables.  So if I run
+'x' ('expand') instead I get:
+
+       remake<5> expand MAKE
+       (origin default) MAKE := /tmp/remake/src/./make
+
+   Note that in printing expanded values we use ':=' while non-expanded
+values we use '=' This output matches the semantics of these assignment
+operators.
+
+   In fact, 'expand' doesn't need a variable name, it will work with a
+string.  So I could type 'x This is $(MAKE)' or 'x $(bin_PROGRAMS)
+$(noinst_PROGRAMS)'.  For the latter, I get:
+
+       remake<6> x $(bin_PROGRAMS) $(noinst_PROGRAMS)
+       make remake
+
+   No location identification is given here since what I put in isn't a
+variable.
+
+   But I can also _change_ values too using either 'set' or 'setq'.
+(See *note set variable:: and *note setq::.)  Let's see the difference
+between the two.
+
+       remake<7> set MAKE $(MAKE_COMMAND)
+       Variable MAKE now has value '/tmp/remake/src/./make'
+       remake<8> setq MAKE $(MAKE_COMMAND)
+       Variable MAKE now has value '$(MAKE_COMMAND)'
+
+   So with 'set', the value in the expression '$(MAKE_COMMAND)' is
+expanded before the variable definition is assigned.  With 'setq' the
+internal variables are kept unexpanded.  Which you use or want is up to
+you.
+
+   Note the irregular syntax of 'set' and 'setq'.  Don't put an equal
+sign ('=') between the variable and the expression.  That is, 'set MAKE
+= $(MAKE_COMMAND)' gives:
+
+       Variable MAKE now has value '= /tmp/remake/src/./make'
+
+   which is probably not what you want.  One may optionally put in the
+the word "variable" when using 'set', one must not supply it with
+'setq'.  Down the line, someone (maybe _you!_)  will probably put in a
+command parser.
+
+
+File: remake.info,  Node: Debugging Shell Commands,  Prev: Debugging Make Variables,  Up: Sample Sessions
+
+1.1.6 Debugging Shell Commands
+------------------------------
+
+Now consider the following sample Makefile:
+     $ cat -n test2.mk
+     1 PACKAGE=make
+     2
+     3 all: $(PACKAGE).txt
+     4
+     5 $(PACKAGE).txt: ../doc/remake.texi
+     6 	makeinfo --no-headers $< > $ 
+
+     $ remake -X -f test2.mk
+     ...
+     Reading makefiles...
+     updating makefiles....
+     Updating goal targets....
+      /tmp/remake/src/test2.mk:3	File `all' does not exist.
+
+     -> (/tmp/test2.mk:5)
+     make.txt: ../doc/remake.texi
+
+   We could use the 'target' command to show information about the
+current target, but that returns lots if information.  So let us instead
+narrow the information to just the automatic variables that get set.
+The following commands do this are all mean the same thing: 'target
+make.txt variables', 'target  variables', and 'info locals'.
+
+     remake<1> info locals
+     @ := all
+     % :=
+     * :=
+     + := make.txt
+     | :=
+     < := all
+     ^ := make.txt
+     ? :=
+
+   There is a 'target' option to list just the shell commands of the
+target:
+
+     remake<2> target make.txt commands
+
+     make.txt:
+     #  commands to execute (from `test2.mk', line 6):
+     	makeinfo --no-headers $< > $@
+
+
+   We can see a full expansion of the command that is about to be run:
+
+     remake<5> target @ expand
+
+     #  commands to execute (from `test2.mk', line 6):
+     	makeinfo --no-headers $< > $ 
+     #  commands to execute (from `test2.mk', line 6):
+     	-makeinfo --no-headers ../doc/remake.texi > make.txt
+
+
+   Now if we want to write out commands as a shell script which we might
+want to execute, we can use the 'write' (*note Write::) command:
+     (/tmp/remake/src/test2.mk:6): make.txt
+     remake<6> write
+     File "/tmp/make.txt.sh" written.
+
+   We can issue a shell command 'cat -n /tmp/make.txt.sh' to see what
+was written.
+
+     remake<7> shell cat -n /tmp/make.txt.sh
+          1	#!/bin/sh
+          2  # cd /tmp/remake/src/
+          3	#/tmp/remake/src/test2.mk:5
+          4	makeinfo --no-headers ../doc/remake.texi > make.txt
+          5
+
+   If you issue step commands, the debugger runs the each command and
+stops.  In this way, you can inspect the result of running that
+particular shell command and decide to continue or not.
+
+     remake<8> step
+
+       Must remake target `make.txt'.
+     Invoking recipe from test2.mk:6 to update target `make.txt'.
+     ##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     makeinfo --no-headers ../doc/remake.texi > make.txt
+     ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+     ++ (/tmp/test2.mk:5)
+
+   Notice that we've shown the expansion automatically.  One subtle
+difference in the above output, is that we only show the _single_ shell
+command that is about to be run when there are several commands.  In our
+example though, there is only one command; so there is no a difference.
+
+   The '++' icon means that we are about to run that code.
+
+     make.txt
+     remake<9> step
+       Successfully remade target file `make.txt'.
+
+     <- (/tmp/test2.mk:5)
+     make.txt
+     remake<10>
+
+   We ran the code, and are still at target 'make.txt'.  The '<-' icon
+means that have finished with this target and are about to return.
+
+   If you are at a target and want to continue to the end of the target
+you can use the command 'finish' which is the same as 'finish 0'.  See
+*note Finish::.
+
+
+File: remake.info,  Node: Features,  Next: Invocation,  Prev: Summary,  Up: Top
+
+2 Extensions to GNU Make
+************************
+
+Although the bulk of this document is devoted to the GNU Make debugger,
+there are a number of handy extensions to GNU Make that we list here.
+
+* Menu:
+
+* Profiling and Visualization:: Getting data on where build time is spent
+* Comments::     Listing and Documenting Makefile Targets
+* Searching::    Searching for a Makefile in Parent Directories
+* Improved-Tracing::      Improved Execution Tracing
+
+
+File: remake.info,  Node: Profiling and Visualization,  Next: Comments,  Up: Features
+
+2.1 Profiling build execution timing and dependencies
+=====================================================
+
+       $ remake --profile[=callgrind|json] # target...
+
+   The '--profile' option enables dependency and timing output from
+build execution.  The data can be used to determine where your build
+system spends it's time.  By default, the '--profile' option outputs
+profiling data in the callgrind format (1) which can be used with
+'kcachegrind'(2) or other tools(3) that work with this format.  Each
+recursive call to GNU Remake generates its own output in the starting
+directory named 'callgrind.out.<pid>' where 'pid' is the PID of the GNU
+Remake process.
+
+   By default, profiling data is written in the same directory where GNU
+Remake is executed.  This includes recursive calls.  The
+'--profile-directory' argument can be used to specify a single directory
+for all profiling data.  This is taken to be relative to the initial
+invocation of GNU Remake unless the path begins with ~ or /.
+
+2.1.1 JSON-formatted profiling data
+-----------------------------------
+
+The '--profile' option also accepts a 'json' flag that will output
+profiling data in json-formatted files.  With the following formatting:
+
+      {
+          "version":"1.0.0",
+          "pid":1234,
+          "parent":{
+              "pid":1230,
+              "target":"target-name"
+          },
+          "jobs": 8,
+          "server": true,
+          "creator":"remake"
+          "argv":[
+              "arg0",
+              "arg1",
+              "arg2"
+          ],
+          "directory":"path/to/working/dir",
+          "status":"Normal program termination",
+          "start":1235.6789,
+          "end":1240.0123,
+          "resolution":1000,
+          "entry":[
+              "all",
+              "other"
+          ],
+          "targets":[
+              {
+                  "name":"all",
+                  "file":"path/to/file/with/target",
+                  "line":100,
+                  "start":123.123,
+                  "deps":null,
+                  "recipe":124.0,
+                  "end":124.124,
+                  "depends":[
+                      "dependent",
+                      "target0",
+                      "target1",
+                      "target2"
+                  ]
+              }
+          ]
+      }
+
+2.1.1.1 Top-level field definitions
+...................................
+
+'version'
+     The 'version' field specifies the version of build.json file.
+'pid'
+     The PID of the GNU Remake execution that created this file
+'parent.pid'
+     If present, this PID of the GNU Remake process that recursively
+     called the current GNU Remake process
+'parent.target'
+     If present, the name of the target the parent GNU Remake process
+     that recusively called the current GNU Remake process.
+'jobs'
+     If present, either 'unlimited' when parallel jobs were not
+     restricted.  Or an integer value reprenting the maximum number of
+     available jobs.
+'server'
+     True if connected to a jobserver
+'creator'
+     A string representing the version of GNU Remake that generated this
+     file
+'argv'
+     An array of strings that represent the command used to start GNU
+     Remake
+'directory'
+     Path to the starting directory, generally the path current
+     directory or the value passed to GNU Remake with '-C
+     path/to/subdir'
+'status'
+     String representing what caused GNU Remake to exit
+'start'
+     Timestamp in seconds representing when GNU Remake started
+'end'
+     Timestamp in seconds representing when GNU Remake ended
+'resolution'
+     Number of nanoseconds specifying the minimum resolution of
+     timestamps in the output
+'entry'
+     An array of targets that were requested to be built.
+'targets'
+     An array of target specifications
+
+2.1.1.2 Target field definitions
+................................
+
+'name'
+     Name of the target
+'file'
+     Path to the file that contains the target definition relative to
+     the top-level 'directory' field
+'line'
+     Line number of the 'name' target in the 'file' field
+'start'
+     Timestamp when the target was first considered by GNU Remake
+'deps'
+     Timestamp when GNU Remake marked the target as waiting on
+     dependencies.  Or 'null' if it was not marked as waiting.
+'recipe'
+     Timestamp when the recipe for the target began execution.  Or
+     'null' if the recipe did not need to execute.
+'end'
+     Timestamp when the target was considered complete
+'depends'
+     Array of target names that this target depended on.
+
+   ---------- Footnotes ----------
+
+   (1) <http://valgrind.org/docs/manual/cl-format.html>
+
+   (2) http://kcachegrind.sourceforge.net/html/Home.html
+
+   (3) <https://github.com/icefox/callgrind_tools>,
+<https://github.com/zenkj/callgrind2dot>
+
+
+File: remake.info,  Node: Comments,  Next: Searching,  Prev: Profiling and Visualization,  Up: Features
+
+2.2 Listing and Documenting Makefile Targets
+============================================
+
+Have you ever wanted 'rake tasks' for GNU Make?  That is, you have some
+strange Makefile and you want to see the interesting targets, that you
+can run "make _target-name_" on?
+
+   There are two new options added to 'remake' to assist this:
+
+   * '--tasks' gives a list of "interesting" targets
+   * '--targets' gives a list of _all_ targets
+
+   Before each target in the Makefile, you can give add a one-line
+comment describing what the target does, starting the comment with '#:'.
+
+   If you do this, when either of these options is shown it will also be
+shown with next to the target name.
+
+   Here is an example.  Consider this Makefile:
+
+
+     #: This is the main target
+     all:
+     	echo all here
+
+     #: test things
+     check:
+     	echo check here
+
+     #: Build distribution
+     dist:
+     	echo dist here
+
+   Running 'remake --tasks' gives:
+
+     all         # This is the main target
+     check       # test things
+     dist        # Build distribution
+
+
+File: remake.info,  Node: Searching,  Next: Improved-Tracing,  Prev: Comments,  Up: Features
+
+2.3 Searching for a Makefile in Parent Directories
+==================================================
+
+When the '-c' flag is given (or '--search-parent'), if a Makefile or
+goal target isn't found in the current directory, GNU Remake will search
+in the parent directory for a Makefile.  On finding a parent the closest
+parent directory with a Makefile, GNU Remake will set its current
+working directory to the directory where the Makefile was found.
+
+   In this respect the short option '-c', is like '-C' except no
+directory need to be specified.
+
+
+File: remake.info,  Node: Improved-Tracing,  Prev: Searching,  Up: Features
+
+2.4 Improved Execution Tracing
+==============================
+
+When the '-x' flag is given (or '--trace=normal'), any commands that are
+about to be run are shown as seen in the 'Makefile' along with 'set -x'
+tracing when run in a POSIX shell.  Also, we override or rather ignore,
+any non-echo prefix '@' directive listed at the beginning of target
+commands.
+
+   If different granularity of tracing is desired the '--trace' option
+has other settings.  See the relevant parts of this manual for more
+information.
+
+   And, if you the most flexibility in tracing there is a built-in
+debugger.
+
+
+File: remake.info,  Node: Invocation,  Next: Debugger Command Reference,  Prev: Features,  Up: Top
+
+3 Getting in and out and new GNU Remake Command Options
+*******************************************************
+
+This chapter discusses how to start the GNU Make debugger, and how to
+get out of it.
+
+   There are a couple ways you could get into the debugger
+
+   * invoke from the outset, using option '-X' or '--debugger'.
+   * enter when there is a fatal error using option '--debugger=error',
+     'debugger=fatal', or '--post-mortem'
+   * through an explicit call inside the debugger using built-in
+     function 'debugger'
+
+   Once inside the debugger, and type 'quit' or 'C-d' inside the
+debugger to exit.
+
+   You don't have to use the command-line interface.  At present there
+is a front-end available via GNU Emacs which can be entered via the
+Emacs command 'M-x remake' after loading 'dbgr'.  See *note Using the
+GNU Make debugger from GNU Emacs: Emacs.
+
+* Menu:
+
+* Starting the GNU Make debugger::    How to enter the the GNU Make debugger
+* Quitting the GNU Make debugger::    How to leave the the GNU Make debugger
+
+
+File: remake.info,  Node: Starting the GNU Make debugger,  Next: Quitting the GNU Make debugger,  Up: Invocation
+
+3.1 Starting the GNU Make debugger
+==================================
+
+_Note: it is important to use a debugger-enabled GNU Make.  You will get
+usage help output if a patched GNU Make is not used._
+
+   As mentioned above, one can enter the GNU Make debugger via Emacs
+(and perhaps later DDD). However you don't have to use either of these.
+And these still need a way on their own to get things started.
+
+   The enter the GNU Make debugger from a command line, use the
+'--debugger'.  The short form '-X' option is short for '--debugger' or
+'--debugger=preaction'
+
+     make --debugger OTHER-MAKE-ARGUMENTS...
+     make -X
+
+   This runs GNU Remake as it would normally do; that is Makefiles are
+read and dependencies are checked.  However it is in a "stepping" mode
+and will go into the debugger read loop when before encounter in
+"interesting" target.  An "interesting" target is one that has commands
+associated with it to rebuild the target.
+
+   A sub-option to the '--debugger' (or '-X') option specifies under
+what conditions to enter the debugger; it is specified by putting an
+equals sign ('=') and then the sub-option; for example:
+
+     make --debugger=preread OTHER-MAKE-ARGUMENTS...
+
+   Here is a full list of debugger options and sub-options...
+
+'--debugger [PREREAD | PREACTION | FULL | ERROR | FATAL]'
+'-X'
+     The "preread" sub-option enters the debugger after command-line
+     options are parsed but before any Makefiles have been read.  It
+     also puts GNU Remake in step-tracing mode and sets the debugger to
+     enter if it encounters an error.
+
+     The "preaction" sub-option enters the debugger after command-line
+     options are parsed and after Makefiles have been read, but before
+     any action is performed.  It also puts GNU Remake in step-tracing
+     mode and sets the debugger to enter if it encounters an error.
+
+     The "error" sub-option enters the debugger when it encounters an
+     error.  Depending on other conditions, GNU Remake can ignore errors
+     and continue processing.  So the overall effect could be like the
+     '--keep-going' flag.
+
+     The "fatal" sub-option enters the debugger when it encounters a
+     fatal error.  A fatal error generally cause GNU Remake to abort
+     execution.
+
+     The "full" sub-option is just a convenience for giving the "enter,"
+     "error," and "fatal" options described above.  execution.
+
+     If no sub-option is provided, "full" is assumed.
+
+'--no-extended-errors'
+     This option causes GNU Remake to _not_ print a target stack trace
+     if it encounters an error.
+
+'--trace [=SUBOPTION]'
+'-x'
+     Causes target names which have commands associated with them to get
+     printed before they are considered.  If a target has multiple
+     commands each one is printed before they are run whether or not the
+     command has the GNU Remake @ specifier which would otherwise cause
+     them not to echo.
+
+     This option also allows for sub-options, 'read', 'normal', and
+     'full'.  The default is 'normal'; 'read' adds tracing as Makefiles
+     are read.
+
+     tracing is independent of the '--debugger' option and can be used
+     in conjunction with it.  Inside the debugger one can have the same
+     effect by issuing the debugger 'set trace on' command.
+
+'--post-mortem'
+     This option causes GNU Remake to go into the debugger after
+     encountering an error.
+
+3.1.1 Explicit call to the GNU Make debugger
+--------------------------------------------
+
+Another way to get into the debugger is to make a specific all inside
+your Makefile using the 'debugger' built-in function.
+
+     foo: bar
+
+     debug:
+          $(debugger "debug target break")
+
+     bar:
+          $(debugger "first bar command")
+          @echo hi
+
+     baz: debug
+          @echo hello again
+
+     $ remake -f /tmp/foo.Makefile
+     debugger() function called with parameter "first bar command"
+     break
+     :o (/tmp/foo.Makefile:3)
+     bar
+     remake<0> where
+     =>#0  bar at /tmp/foo.Makefile:6
+       #1  foo at /tmp/foo.Makefile:1
+       remake<0> quit
+       remake: That's all, folks...
+
+     $ remake -f /tmp/foo.Makefile baz
+     debugger() function called with parameter "debug target break"
+      break
+     :o (/src/external-vcs/github/rocky/remake/tmp/debugger.Makefile:3)
+     debug
+     remake<0> where
+     =>#0  debug at /tmp/foo.Makefile:3
+       #1  baz at /tmp/foo.Makefile:10
+     remake<0>
+
+
+File: remake.info,  Node: Quitting the GNU Make debugger,  Prev: Starting the GNU Make debugger,  Up: Invocation
+
+3.2 Quitting the GNU Make debugger
+==================================
+
+An interrupt (often 'C-c') does not exit from the GNU Make debugger, but
+rather terminates the action of any the GNU Make debugger command that
+is in progress and returns to the GNU Make debugger command level.
+Inside a debugger command interpreter, use 'quit' command (*note
+Quitting the Make debugger: Quit.).
+
+
+File: remake.info,  Node: Debugger Command Reference,  Next: Front Ends,  Prev: Invocation,  Up: Top
+
+4 GNU Remake Debugger Command Reference
+***************************************
+
+You can abbreviate the long name of the GNU Make debugger command to the
+first few letters of the command name, if that abbreviation is
+unambiguous; and you can repeat the 'next' or 'step' commands by typing
+just <RET>.  Some commands which require a parameter, such as 'print'
+remember the argument that was given to them.
+
+* Menu:
+
+* Command Syntax::        How to give commands to the the GNU Make debugger
+* Help::                  How to ask for help (help)
+* Quit::                  Leaving the remake (quit)
+* Stopping::              Stopping and continuing (break, watch, step, cont...)
+* Information::           Status and Debugger settings (info, set, show)
+* Stack::                 Examining the stack (where, up, down, frame)
+* Data::                  Examining data (print, target, expand, info variables)
+* Files::                 Specifying and examining files (load, edit)
+* Interfacing to the OS:: Interfacing to the OS (cd, pwd, source)
+* Controlling Make::      Controlling make (annotate, file, prompt...)
+
+
+File: remake.info,  Node: Command Syntax,  Next: Help,  Up: Debugger Command Reference
+
+4.1 Command syntax
+==================
+
+A GNU Remake debugger command is a single line of input.  There is no
+limit on how long it can be.  It starts with a command name, which is
+followed by arguments whose meaning depends on the command name.  For
+example, the command 'step' accepts an argument which is the number of
+times to step, as in 'step 5'.  You can also use the 'step' command with
+no arguments.  Some commands do not allow any arguments.  In commands
+that have attributes, the attribute can be abbreviated to the minimum
+string that makes it unique.  For example "commands"in 'target all
+commands' can be shortened to "command" or "com" or just "c".
+
+   A blank line as input to the GNU Make debugger (typing just <RET>)
+means to repeat the previous next or step command.
+
+   Any text from a '#' to the end of the line is a comment; it does
+nothing.  This is useful mainly in command files
+
+
+File: remake.info,  Node: Help,  Next: Quit,  Prev: Command Syntax,  Up: Debugger Command Reference
+
+4.2 Getting help ('help')
+=========================
+
+Once inside the debugger, you can always ask it for information on its
+commands, using the command 'help'.
+
+'help'
+'h'
+     You can use 'help' (abbreviated 'h') with no arguments to display a
+     short list of named classes of commands:
+
+     remake<0> help
+       Command                  Short Name  Aliases
+       ----------------------   ----------  ---------
+       break [TARGET|LINENUM] [all|run|prereq|end]* (b)  L
+       cd DIR                          (C)
+       comment TEXT                    (#)
+       continue [TARGET [all|run|prereq|end]*] (c)
+       delete breakpoint numbers..     (d)
+       down [AMOUNT]                   (D)
+       edit                            (e)
+       eval STRING                     (E)
+       expand STRING                   (x)
+       finish [AMOUNT]                 (F)
+       frame N                         (f)
+       help [COMMAND]                  (h)  ?, ??
+       info [SUBCOMMAND]               (i)
+       list [TARGET|LINE-NUMBER]       (l)
+       next [AMOUNT]                   (n)
+       print {VARIABLE [attrs...]}     (p)
+       pwd                             (P)
+       quit [exit-status]              (q)  exit, return
+       run [ARGS]                      (R)  restart
+       set OPTION {on|off|toggle}
+       set variable VARIABLE VALUE     (=)
+       setq VARIABLE VALUE             (")
+       shell STRING                    (!)  !!
+       show [SUBCOMMAND]               (S)
+       source FILENAME                 (<)
+       skip                            (k)
+       step [AMOUNT]                   (s)
+       target [TARGET-NAME] [info1 [info2...]] (t)
+       up [AMOUNT]                     (u)
+       where                           (T)  backtrace, bt
+       write [TARGET [FILENAME]]       (w)
+
+     Readline command line editing (emacs/vi mode) is available.
+     For more detailed help, type h <cmd> or consult online-documentation.
+
+'help COMMAND'
+     With a command name as 'help' argument, GNU Remake displays short
+     information on how to use that command.
+
+          remake<3> help where
+            where:
+          	Show target stack.
+
+     In addition to 'help', you can use the debugger command 'info' to
+     inquire about the state of your script, or the state of the GNU
+     Make debugger itself.  The listings under 'info' in the Index point
+     to all the sub-commands.  *Note Command Index::.
+
+'info'
+     This command (abbreviated 'i') is for describing the state of your
+     program.  You can get a complete list of the 'info' sub-commands
+     with 'help info'.
+
+     Subcommands can be abbreviated with the minimum number of letters
+     to make that subcommand distinct from another.  For example 'info
+     lo' is the same as 'info locals' and 'info li' is the same as 'info
+     line'.
+
+          remake<0> help info
+            info [thing]:
+          	Show the state of thing.
+          	If no 'thing' is specified, show everything there is to show.
+
+          	Available info subcommands are:
+          	 line locals makefiles targets variables warranty
+
+
+File: remake.info,  Node: Quit,  Next: Stopping,  Prev: Help,  Up: Debugger Command Reference
+
+4.3 Gentle termination of the GNU Make debugger ('quit')
+========================================================
+
+'quit [RETURN-CODE]'
+'q [RETURN-CODE]'
+
+     To exit GNU Remake, use the 'quit' command (abbreviated 'q'), or
+     type an end-of-file character (usually 'C-d').  If you do not
+     supply RETURN-CODE, GNU Remake will terminate normally or with exit
+     code 0.  Otherwise it use the value of the RETURN-CODE as the exit
+     code.  Usually a 0 exit is a normal exit.
+
+     Often when running GNU Make or GNU Remake, a recursive call is made
+     or made in another directory.  The 'quit' only terminates only the
+     last one: the one that the debugger is in.  The GNU Remake debugger
+     arranges for the debug flags to get passed down in recursive calls.
+     Consequently when you quit one of the inner make calls, you may
+     find yourself still in the debugger but up a call level.
+
+
+File: remake.info,  Node: Stopping,  Next: Information,  Prev: Quit,  Up: Debugger Command Reference
+
+4.4 Stopping and Resuming Execution
+===================================
+
+One important use of a debugger is to stop execution before it gets into
+trouble, so you can investigate and find out what is going on.  However
+should GNU Remake accidentally continue to termination, the GNU Make
+debugger has arranged for it not to leave the debugger without your
+explicit instruction.  That way, you can restart the program using the
+same command arguments.
+
+   Inside the GNU Make debugger, your script may stop for any of several
+reasons, such as a signal, a breakpoint, or reaching a new line after a
+debugger command such as 'step'.  You may then expand and change
+variables, set new breakpoints or remove old ones, and then continue
+execution.
+
+* Menu:
+
+* Breakpoints::          Breakpoints, watchpoints (break, clear)
+* Resuming Execution::   Resuming execution (continue, step, next, skip)
+* Signals::              Signals
+
+
+File: remake.info,  Node: Breakpoints,  Next: Resuming Execution,  Up: Stopping
+
+4.4.1 Breakpoints
+-----------------
+
+A "breakpoint" arranges for GNU Remake to stop when it reaches a
+Makefile target.
+
+   You can set breakpoints with the 'break' command and its variants
+(*note Setting breakpoints: Set Breaks.), to specify the place where
+your script should stop by target name.
+
+   The debugger assigns a number to each breakpoint when you create it;
+these numbers are successive integers starting with 1.  In many of the
+commands for controlling various features of breakpoints you use this
+number.
+
+* Menu:
+
+* Set Breaks::                      Setting breakpoints (break)
+* Delete Breaks::                   Deleting breakpoints (delete, clear)
+
+
+File: remake.info,  Node: Set Breaks,  Next: Delete Breaks,  Up: Breakpoints
+
+4.4.1.1 Setting breakpoints ('break')
+.....................................
+
+Breakpoints are set with the 'break' command (abbreviated 'b').  Use
+'info targets' to get a list of target names that you can break at.
+
+'break'
+     In this form without argument, list all breakpoints.
+
+     Example:
+          remake<0> break
+          remake<1> info break
+          Num Type           Disp Enb target     What
+            1 breakpoint     keep y   in all at /tmp/Makefile:450
+
+'break TARGET|LINE-NUMBER [ALL|RUN|PREREQ]'
+     Set a breakpoint at TARGET or at line LINE-NUMBER in the current
+     Makefile.
+
+     There are 3 place where one may want to stop at:
+
+        * before prerequisite checking (prereq)
+
+        * after prerequisite checking but before running commands (run)
+
+        * after target is complete (end)
+
+   Example:
+     remake<0> break all
+
+     Breakpoint 1 on target all: file Makefile, line 450.
+     Warning: target is in the process of being updated;
+
+
+File: remake.info,  Node: Delete Breaks,  Prev: Set Breaks,  Up: Breakpoints
+
+4.4.1.2 Deleting breakpoints ('delete')
+.......................................
+
+It may be desirable to eliminate a breakpoint once it has done its job
+and you no longer want stop there.  This is called "deleting" the
+breakpoint.  A breakpoint that has been deleted no longer exists; it is
+forgotten.
+
+   It is not necessary to delete a breakpoint to proceed past it.  the
+GNU Make debugger automatically ignores breakpoints on the first
+instruction to be executed when you continue execution.
+
+'delete BREAKPOINT-NUMBER...'
+     Delete the breakpoints by breakpoint-number specified as arguments.
+
+
+File: remake.info,  Node: Resuming Execution,  Next: Signals,  Prev: Breakpoints,  Up: Stopping
+
+4.4.2 Resuming Execution
+------------------------
+
+"Continuing" means resuming program execution until your script
+completes normally.  In contrast, "stepping" means executing just one
+more "step" of your script, where "step" may mean either one line of
+source code.  Either when continuing or when stepping, your script may
+stop even sooner, due to a breakpoint or a signal.
+
+* Menu:
+
+* Next::          running the next target (next)
+* Step::          running the next target in smaller increments (step)
+* Finish::        step out
+* Skip::          skipping over a target (skip)
+* Continue::      continuing execution (continue)
+
+
+File: remake.info,  Node: Next,  Next: Step,  Up: Resuming Execution
+
+4.4.2.1 Next ('next')
+.....................
+
+'next'
+     Continue processing your Makefile until control reaches the next
+     interesting target, then stop and return control to the GNU Make
+     debugger.  This command is abbreviated 'n'.  If you want more
+     fine-grained stepping use 'step'.  See *note Step::.  If you want
+     to not stop at any of targets the current target depends on, but
+     instead run until after this target is remade, use 'finish'.  See
+     *note Finish::.
+
+'next [COUNT]'
+     Continue running as in 'next', but do so COUNT times.  If a
+     breakpoint is reached, or a signal not related to stepping occurs
+     before COUNT steps, stepping stops right away.
+
+
+File: remake.info,  Node: Step,  Next: Finish,  Prev: Next,  Up: Resuming Execution
+
+4.4.2.2 Step ('step')
+.....................
+
+'step'
+     Stepping is like 'next' but it is more fine-grained.  However we
+     still don't stop at targets for which there is no rule.  We once
+     tried that and stepping is too tedious for C source files as one C
+     file may depend on several included headers which are all extant
+     files.
+
+     If there are multiple commands associated with a target 'step' will
+     stop before each one.
+
+     If you want to be sure to stop at a particular target, use the
+     'break' command.  See *note Breakpoints::.  Also see *note Next::
+     and *note Finish:: for other kinds of stepping.
+
+'step [COUNT]'
+     Continue running as in 'step', but do so COUNT times.  If a
+     breakpoint is reached, or a signal not related to stepping occurs
+     before COUNT steps, stepping stops right away.
+
+
+File: remake.info,  Node: Finish,  Next: Skip,  Prev: Step,  Up: Resuming Execution
+
+4.4.2.3 Finish ('finish')
+.........................
+
+'finish'
+
+     With no arguments, the GNU Make debugger runs to the end of the
+     target.  Any prerequisite checking and building that needs to occur
+     is done and any shell commands that occur get run.
+
+     This is analogous to "step out" in programming-language debuggers.
+
+'finish [COUNT]'
+     Runs a "finish" _count_ times, putting the program that many levels
+     up the current target stack.  A count of 0 is the current target
+     and that's the same as giving no count.
+
+
+File: remake.info,  Node: Skip,  Next: Continue,  Prev: Finish,  Up: Resuming Execution
+
+4.4.2.4 Skip over tareget ('skip')
+..................................
+
+'skip [COUNT]'
+     Skip executing the remaining commands of the target you are stopped
+     at.  This may be useful if you have an action that "fixes" existing
+     code in a Makefile.
+
+
+File: remake.info,  Node: Continue,  Prev: Skip,  Up: Resuming Execution
+
+4.4.2.5 Continue ('continue')
+.............................
+
+'continue [TARGET {ALL|RUN|PREREQ}*]'
+     Resume program execution until the next breakpoint or recursive
+     make is called.  If a target name is given, a temporary breakpoint
+     is set there.  Use 'info target' to get a list of target names you
+     can use.
+
+     A common mistake is giving a target already updated, so we will
+     warn about that situation.  It is possible to set a breakpoint on a
+     target that subsequently never gets updated.  In that situation the
+     'remake' will also not stop.  This is another cause of constant
+     confusion, as you may expected (erroneously) that the program
+     should have decided to update the target.  See also *Note
+     Breakpoints::.
+
+
+File: remake.info,  Node: Signals,  Prev: Resuming Execution,  Up: Stopping
+
+4.4.3 Signals
+-------------
+
+A signal is an asynchronous event that can happen in a program.  The
+operating system defines the possible kinds of signals, and gives each
+kind a name and a number.  For example, in Unix 'SIGINT' is the signal a
+program gets when you type an interrupt character (often 'C-c');
+'SIGALRM' occurs when the alarm clock timer goes off (which happens only
+if your program has requested an alarm).
+
+   GNU Remake sets up some signal handlers of children it spawns.  When
+we are running under the debugger when and we get a signal the debugger
+read loop is entered.
+
+   Some signals, including 'SIGALRM', are a normal part of the
+functioning of your program.  Others, such as 'SIGSEGV', indicate
+errors; these signals are "fatal" (they kill your program immediately)
+if the program has not specified in advance some other way to handle the
+signal.  'SIGINT' does not indicate an error in your program, but it is
+normally fatal so it can carry out the purpose of the interrupt: to kill
+the program.
+
+
+File: remake.info,  Node: Information,  Next: Stack,  Prev: Stopping,  Up: Debugger Command Reference
+
+4.5 Status and Debugger Settings ('info', 'show', 'set')
+========================================================
+
+* Menu:
+
+* Info::        Showing information about the program being debugged
+* Set::         Change debugger settings
+* Show::        Show debugger settings
+
+In addition to 'help', you can use the GNU Make debugger commands 'info'
+and 'show' to inquire about the state of your program, or the state of
+GNU Remake itself.  The 'set' command allow you to change debugger
+behavior and in some cases program behavior.
+
+
+File: remake.info,  Node: Info,  Next: Set,  Up: Information
+
+4.5.1 Showing information about the program being debugged ('info')
+-------------------------------------------------------------------
+
+This 'info' command (abbreviated 'i') is for describing the state of
+your program.  For example, you can list the current '$1', '$2'
+parameters with 'info args', or list the breakpoints you have set with
+'info breakpoints' or 'info watchpoints'.  You can get a complete list
+of the 'info' sub-commands with 'help info'.
+
+'info targets [VERBOSE]'
+     Use 'info targets' to get a list of all the targets explicitly
+     mentioned in the makefiles that are read.  The location of each
+     target is given before the target name.
+
+     The result of running this on the sample makefile used in *note
+     Tracing Not:::
+
+          remake<0> info targets
+          test1.mk:2:
+          	.PHONY
+          test1.mk:3:
+          	all
+          test1.mk:5:
+          	foo
+          remake<1>
+'info program'
+     Use 'info program' to give information about the state of the
+     stopping point.
+
+          remake<0> info program
+          Starting directory `/tmp'
+          Program invocation:
+          	/usr/bin/remake -f /tmp/test1.mk
+          Recursion level: 0
+          Line 5 of "/tmp/test1.mk"
+          Program stopped at a breakpoint before rule-prequisite checking.
+
+'info break'
+     Use 'info break' to give a list of breakpoint currently in effect.
+
+          remake<0> info break
+          Num Type           Disp Enb target     What
+            1 breakpoint     keep y   in all at /tmp/test1.mk:3
+            2 breakpoint     keep y   in foo at /tmp/test1.mk:5
+          remake<1>
+
+'info line'
+     Shows the line number and file of for the place that you are
+     currently stopped.
+
+          $ remake -X -f test1.mk
+          ...
+          remake<0> info line
+          Line 5 of "/tmp/test1.mk"
+          remake<1>
+
+'info lines'
+     Shows for each Makefile the line numbers that targets appear.
+
+          $ remake -X -f test1.mk
+          ...
+          remake<0> info lines
+          test1.mk
+                 2: .PHONY
+                 3: all
+                 5: foo
+          remake<1>
+
+'info locals'
+     Displays a the values of the automatic variables.
+
+'info makefiles'
+     Displays the list of Makefiles read in the order that they were
+     read in.  The last Makefile listed is the one you started with
+     (e.g.  Makefile).
+
+'info warranty'
+     Displays GNU Warranty
+
+
+File: remake.info,  Node: Set,  Next: Show,  Prev: Info,  Up: Information
+
+4.5.2 Change debugger settings ('set')
+--------------------------------------
+
+'set'
+     In addition to showing GNU Remake settings you can change them or
+     change GNU Remake variables with 'set'.  For example, you can
+     change setting GNU Remake has whether to ignore errors.
+
+
+File: remake.info,  Node: Show,  Prev: Set,  Up: Information
+
+4.5.3 Show information about the debugger ('show')
+--------------------------------------------------
+
+'show'
+     In contrast to 'info', 'show' is for describing the state of GNU
+     Remake itself.  You can change most of the things you can 'show',
+     by using the related command 'set';
+
+     The distinction between 'info' and 'show' however is a bit fuzzy
+     and is kept here to try to follow the GDB interface.
+
+     To display all the settable parameters and their current values,
+     you can use 'show' with no arguments; you may also use 'info set'.
+     Both commands produce the same display.
+
+   Here are force miscellaneous 'show' subcommands, all of which are
+exceptional in lacking corresponding 'set' commands:
+
+'show command'
+     Shows the list of commands previously entered
+
+'show version'
+     Show what version of GNU Remake is running.  You should include
+     this information in the GNU Make debugger bug-reports.  If multiple
+     versions of GNU Remake are in use at your site, you may need to
+     determine which version you are running; as the GNU Make debugger
+     evolves, new commands are introduced, and old ones may wither away.
+     The version number is the same as the one announced when you start
+     GNU Remake.
+
+'show warranty'
+     Display the GNU "NO WARRANTY" statement, or a warranty, if your
+     version of the GNU Make debugger comes with one.
+
+
+File: remake.info,  Node: Stack,  Next: Data,  Prev: Information,  Up: Debugger Command Reference
+
+4.6 Examining the Stack ('where', 'frame', 'up', 'down')
+========================================================
+
+When you enter the debugger, one thing you'll probably want to know is
+where it stopped and some idea of how it got there.
+
+   Each time your Makefile performs dependency checking (sometimes as
+implicit rules or pattern-substitution rules), information about the
+target that caused the new target to be considered action is saved on a
+stack.  This target call stack then is this a history of the dependency
+checks that got you to the point that you are currently stopped at.
+
+   One of the stack frames is "selected" by the GNU Make debugger and
+many the GNU Make debugger commands refer implicitly to the selected
+frame.  In particular, whenever you ask the GNU Make debugger to list
+lines without giving a line number or location the value is found in the
+selected frame.  There are special the GNU Make debugger commands to
+select whichever frame you are interested in.  *Note Selecting a frame:
+Selection.
+
+   When your program stops, the GNU Make debugger automatically selects
+the currently executing frame and describes it briefly, similar to the
+'frame' command.
+
+* Menu:
+
+* Frames::                      Stack frames
+* Backtrace::                   Backtraces (where)
+* Selection::                   Selecting a frame (up, down, frame)
+
+
+File: remake.info,  Node: Frames,  Next: Backtrace,  Up: Stack
+
+4.6.1 Stack frames
+------------------
+
+The target stack is divided up into contiguous pieces called "stack
+frames", or "frames" for short.  The frame contains the line number of
+the target which triggered the next one to be considered, the Makefile
+file name that the line in that refers to a target name.  When some of
+this information is be missing you may see a filename shown as "null" or
+have line number 0.
+
+   When your script is started, the stack has only one frame, that of
+the function 'main'.  This is called the "initial" frame or the
+"outermost" frame.  Each time a function is called, a new frame is made.
+Each time a function returns, the frame for that function invocation is
+eliminated.  If a function is recursive, there can be many frames for
+the same function.  The frame for the function in which execution is
+actually occurring is called the "innermost" frame.  This is the most
+recently created of all the stack frames that still exist.
+
+   the GNU Make debugger assigns numbers to all existing stack frames,
+starting with zero for the innermost frame, one for the frame that
+called it, and so on upward.  These numbers do not really exist in your
+script; they are assigned by the GNU Make debugger to give you a way of
+designating stack frames in the GNU Make debugger commands.
+
+
+File: remake.info,  Node: Backtrace,  Next: Selection,  Prev: Frames,  Up: Stack
+
+4.6.2 Backtraces ('where')
+--------------------------
+
+A backtrace is essentially the same as the call stack: a summary of how
+your script got where it is.  It shows one line per frame, for many
+frames, starting with the place that you are stopped at (frame zero),
+followed by its caller (frame one), and on up the stack.
+
+   If GNU Remake is in the reading phase the backtrace shows the nesting
+of include files.  If GNU Remake is in the interpretation phase the
+backtrace shows the nesting of targets.
+
+'where'
+'backtrace'
+'bt'
+'T'
+     If we are reading Makefiles, print a backtrace of the included
+     Makefile stack.  If we are evaluating the Makefile to bring targets
+     up to date, print a backtrace of the target stack.  In either case,
+     we print line per frame.
+
+'where N'
+'backtrace N'
+'bt N'
+'T N'
+     Similar, but print only the innermost N frames.  A negative number
+     prints the outermost N frames.
+
+   Each line in the backtrace shows the frame number and the function
+name, the source file name and line number, as well as the function
+name.
+
+   Here is an example of a backtrace taken a program in the
+regression-tests 'parm.sh'.
+
+     ./make -X
+
+     /tmp/remake/src/Makefile:228: Makefile.in
+     remake<0> step
+
+     /tmp/remake/src/Makefile:263: make
+     remake<1> where
+
+     =>#0  make at /tmp/remake/src/Makefile:263
+       #1  all-am at /tmp/remake/src/Makefile:386
+       #2  all at /tmp/remake/src/Makefile:224
+
+
+   However if we have set debugging to stop before reading makefiles are
+we are in the reading phase, we show included Makefiles:
+
+     $ ./make -debugger=preread
+     Reading makefiles...
+     Reading makefile `Makefile'...
+
+     (/tmp/remake/src/Makefile:1)
+     remake<0> step
+     /tmp/remake/src/Makefile:324
+     	Reading makefile `.deps/alloca.Po' (search path) (no ~ expansion)...
+
+     (/tmp/remake/src/.deps/alloca.Po:1)
+     remake<1> where
+
+     =>#0  /tmp/remake/src/.deps/alloca.Po:1
+       #1  /tmp/remake/src/Makefile:324
+
+     remake<2> next
+     /tmp/remake/src/Makefile:327
+     	Reading makefile `.deps/getloadavg.Po' (search path) (no ~ expansion)...
+     /tmp/remake/src/Makefile:328
+     	Reading makefile `.deps/ar_fns.Po' (search path) (no ~ expansion)...
+     /tmp/remake/src/Makefile:329
+
+     ... lots of lines deleted ...
+
+     	Reading makefile `.deps/version.Po' (search path) (no ~ expansion)...
+     /tmp/remake/src/Makefile:360
+     	Reading makefile `.deps/vpath.Po' (search path) (no ~ expansion)...
+     Updating goal targets....
+      /tmp/remake/src/Makefile:254	File `all' does not exist.
+
+     (/tmp/remake/src/Makefile:254): all
+     remake<3>
+
+
+   Note in the above 'step' goes on to the next read of a makefile while
+the 'next' command can be used to skip over all of the remaining reads.
+
+
+File: remake.info,  Node: Selection,  Prev: Backtrace,  Up: Stack
+
+4.6.3 Selecting a frame ('up', 'down', 'frame')
+-----------------------------------------------
+
+Commands for printing targets script work on whichever stack frame is
+selected at the moment.  Here are the commands for selecting a stack
+frame; all of them finish by printing a brief description of the stack
+frame just selected.
+
+'up N'
+     Move N frames up the stack.  For positive numbers N, this advances
+     toward the outermost frame, to higher frame numbers, to frames that
+     have existed longer.  N defaults to one.
+
+'down N'
+     Move N frames down the stack.  For positive numbers N, this
+     advances toward the innermost frame, to lower frame numbers, to
+     frames that were created more recently.  N defaults to one.  You
+     may abbreviate 'down' as 'do'.
+
+   All of these commands end by printing two lines of output describing
+the frame.  The first line shows the frame number, the function name,
+the arguments, and the source file and line number of execution in that
+frame.  The second line shows the text of that source line.
+
+   For example:
+
+     remake<8> up
+     /tmp/remake/src/Makefile:386: all-am
+     remake<8> T
+       #0  make at /tmp/remake/src/Makefile:263
+     =>#1  all-am at /tmp/remake/src/Makefile:386
+       #2  all at /tmp/remake/src/Makefile:224
+
+'frame ARGS'
+     The 'frame' command allows you to move from one stack frame to
+     another, and to print the stack frame you select.  ARGS is the the
+     stack frame number.  Without an argument, 'frame' prints the
+     current stack frame.
+
+
+File: remake.info,  Node: Data,  Next: Files,  Prev: Stack,  Up: Debugger Command Reference
+
+4.7 Examining Data ('print', 'expand', 'target', 'edit', 'write', 'info')
+=========================================================================
+
+* Menu:
+
+* Print::                  Print variable info
+* Expand::                 Print a string expanded
+* Target::                 Print target Info
+* Write::                  Write commands of a target
+* Info Variables::         Print all variables
+
+
+File: remake.info,  Node: Print,  Next: Expand,  Up: Data
+
+4.7.1 Print variable info ('print')
+-----------------------------------
+
+One way to expand variables the 'print' command (abbreviated 'p').
+However a more versatile print command is 'x'; it can print arbitrary
+string expands which of course includes variable.
+
+'print VARIABLE-NAME'
+
+     Use 'print' to display GNU Remake's variables.  As such, variable
+     names should _not_ be preceded with a dollar sign.
+
+          remake<0> print SHELL
+          Makefile:168 (origin: makefile) SHELL = /bin/sh
+
+          /tmp/remake/Makefile:243: Makefile.in
+          remake<1> print $MAKE   # don't use $
+          Can't find variable $MAKE
+
+          /tmp/remake/Makefile:243: Makefile.in
+          remake<1> print shell   # note case is significant
+          Can't find variable shell
+
+'print'
+'p'
+
+     If you omit VARIABLE, the GNU Make debugger displays the last
+     expression again.
+
+
+File: remake.info,  Node: Expand,  Next: Target,  Prev: Print,  Up: Data
+
+4.7.2 Print a string expanded ('expand')
+----------------------------------------
+
+'x STRING'
+
+     The 'x' command expands the string given using GNU Remake's
+     internal variables.  The expansion would be the same as if the
+     string were given as a command inside the target.
+
+          remake<0> expand MAKE
+          (origin default) MAKE := /tmp/remake/src/./make
+
+
+          /tmp/remake/src/Makefile:264: Makefile.in
+
+          remake<1> print MAKE  # note the difference with the ``print''
+          (origin default) MAKE = $(MAKE_COMMAND)
+
+          remake<2> expand $(MAKE)   # Note using $( ) doesn't matter here...
+          /tmp/remake/src/./make          # except in output format - no origin info
+
+          /tmp/remake/src/Makefile:264: Makefile.in
+
+          remake<2> p COMPILE
+          Makefile:104 (origin: makefile) COMPILE := $(CC) $(DEFS) $(DEFAULT_INCLUDES)
+
+          /tmp/remake/src/Makefile:264: Makefile.in
+          remake<10> x compile starts: $(CC) $(DEFS) $(DEFAULT_INCLUDES)
+          compile starts: gcc -DLOCALEDIR=\"\" -DLIBDIR=\"/usr/local/lib\" -DINCLUDEDIR=\"/usr/local/include\" -DHAVE_CONFIG_H -I. -I..
+
+
+
+File: remake.info,  Node: Target,  Next: Write,  Prev: Expand,  Up: Data
+
+4.7.3 Examining Targets ('target', 'list')
+------------------------------------------
+
+the GNU Make debugger can print information about targets.  When the GNU
+Make debugger enters the debugger, the GNU Make debugger spontaneously
+prints the target name under consideration and the location of this
+target.  Likewise, when you select a target frame (*note Selecting a
+frame: Selection.), the GNU Make debugger the default target name is
+changed.
+
+   As with debugging any program, the value shown at a particular point
+in time may change.  Targets, and commands can use GNU Make uses
+variables and these values can change.
+
+'target'
+'t'
+     print information about the current target.
+
+'target TARGET'
+'t TARGET'
+     Print information about TARGET.  A list of attributes can be
+     specified after the target name.  The list of attributes names are
+
+     'attributes'
+          Show the list of "attributes" associated with the target.
+          Attributes can be:
+             * implicit rule search has been done
+             * phony: has no file associated with it
+             * precious:
+             * a command-line target
+
+     'commands'
+          Show the list of commands that need to get run in order to
+          bring the target up to date.
+
+     'depends'
+          Show the targets that this one depends on.
+
+     'expand'
+          Show the list of commands that need to get run in order to
+          bring the target up to date with GNU Remake variables
+          expanded.
+
+     'nonorder'
+          Show the "non-order" dependencies, i.e.  dependencies that are
+          not ordered.
+
+     'previous'
+          Previous target name when there are multiple double-colons
+     'state'
+          Show target status:
+             * Successfully updated
+             * Needs to be updated
+             * Failed to be updated
+             * Invalid - error of some sort
+
+     'time'
+          This shows the time that the file was last modified and if the
+          file has been brought up to date.  If it is not up to date you
+          will see the message "File is very old."  If a target is
+          "phony", i.e.  doesn't have file associated with it, the
+          message "File does not exist."  will appear instead of the
+          time.  In some cases you may see "Modification time never
+          checked."
+
+     'variables'
+          Show single-character automatic state variables (if defined):
+             * @ - the target name
+             * % - target member name, when target is an the archive
+               member
+             * * - the stem with which an implicit rule matches
+             * + - like $^ but with the duplicate dependencies listed in
+               order
+             * < - the name of the first prerequisite
+             * ^ - the names of all prerequisites (no duplicates)
+             * ?  - the names of all prerequisites newer than the target
+               (@)
+
+          Note that there are other automatic variables defined based on
+          these.  In particular those that have a 'D' or 'F' suffix,
+          e.g.  $(@D), or $(*F). These however are not listed here but
+          can shown in a 'print' command or figured out from their
+          corresponding single-letter variable name.
+
+'list'
+'l'
+     The "list" is like target but only text-oriented information is
+     shown.
+
+
+File: remake.info,  Node: Write,  Next: Info Variables,  Prev: Target,  Up: Data
+
+4.7.4 Write commands of a target ('write')
+------------------------------------------
+
+'write [TARGET [FILENAME|HERE]]'
+
+     Use this to write the command portion of a target with GNU Remake's
+     internal variables expanded.  If a filename is given that is the
+     file where the expanded commands are written.  If the filename is
+     "here" then it is not written to a file but output inside the
+     debugger as other debugger commands behave.  And if no file name is
+     given a filename based on the target name is created.
+
+
+File: remake.info,  Node: Info Variables,  Prev: Write,  Up: Data
+
+4.7.5 Print all variables ('info variables')
+--------------------------------------------
+
+'info variables'
+
+     List all POSIX-shell environment and GNU Make variables.
+
+     Each variable is shown on a single line and is preceded by a line
+     which indicates the type of variable it is .  This list of types
+     is:
+
+     Each variable is preceded by a line which indicates
+        * automatic: variables which have values computed afresh for
+          each rule
+        * default: a variable using its default value
+        * environment: a POSIX shell environment variable
+        * pattern-specific
+
+     At the end of the list, hash table statistics are shown.
+
+     Here is an example:
+
+          remake<0> info variables
+          # 'override' directive
+          GNUMAKEFLAGS :=
+          # automatic
+          <D = $(patsubst %/,%,$(dir $<))
+          # default
+          .SHELLFLAGS := -c
+          # default
+          LD = ld
+          # environment
+          PATH = /usr/bin/:/sbin/
+          ...
+          # variable set hash-table stats:
+          # Load=214/1024=21%, Rehash=0, Collisions=35/240=15%
+          remake<4>
+
+
+File: remake.info,  Node: Files,  Next: Interfacing to the OS,  Prev: Data,  Up: Debugger Command Reference
+
+4.8 Specifying and examining files ('edit', 'list', 'load')
+===========================================================
+
+* Menu:
+
+* Edit::                   Edit Makefile
+* List::                   Read Makefile target
+* Load::                   Read and Evaluate a Makefile
+
+
+File: remake.info,  Node: Edit,  Next: List,  Up: Files
+
+4.8.1 Edit Makefile ('edit')
+----------------------------
+
+To edit the Makefile at the current target location file, use the 'edit'
+command.  The editing program of your choice is invoked with the current
+line set to the active line in the program.
+
+   You can customize to use any editor you want by using the 'EDITOR'
+environment variable.  The only restriction is that your editor, e.g.\
+'ex'), recognizes the following command-line syntax:
+     ex +NUMBER FILE
+
+   The optional numeric value +NUMBER specifies the number of the line
+in the file where to start editing.  For example, to configure the GNU
+Make debugger to use the 'emacs' editor, you could use these commands
+with a POSIX shell:
+     EDITOR=/usr/bin/emacs
+     export EDITOR
+     remake ...
+
+'edit'
+     Edit line specification using the editor specified by the 'EDITOR'
+     environment variable.
+
+
+File: remake.info,  Node: List,  Next: Load,  Prev: Edit,  Up: Files
+
+4.8.2 List Makefile target ('edit')
+-----------------------------------
+
+'list'
+
+     List target dependencies and commands for _target_ or
+     _line-number_.
+
+     Without a target name or line number, use the current target.  A
+     target name of '-' will use the parent target on the target stack.
+
+          remake<0> list
+          /tmp/remake/tests/spec/example/simple.Makefile:2
+          all:
+          #  recipe to execute (from '/tmp/remake/tests/spec/example/simple.Makefile', line 3):
+             echo all here
+
+          remake<1> list -
+           ** We don't seem to have a parent target.
+          remake<2>
+
+
+File: remake.info,  Node: Load,  Prev: List,  Up: Files
+
+4.8.3 Read and Evaluate Makefile ('load')
+-----------------------------------------
+
+'load'
+
+     **load** *Makefile*
+
+     Read in and evaluate *Makefile*.
+
+   Note that dependencies are updated after reading the file in.
+
+   Here are several possible uses of this command.
+
+   In debug sessions you can fix the source code and the run 'load' to
+have the code reread in, to test out the fix.
+
+   Another use is to have pecific "debug"-oriented Makefiles that aren't
+normally used, but when you want to trace things are avialable.  This is
+an aspect of aspect-oriented programming.  See
+<https://en.wikipedia.org/wiki/Aspect-oriented_programming>.
+
+
+File: remake.info,  Node: Interfacing to the OS,  Next: Controlling Make,  Prev: Files,  Up: Debugger Command Reference
+
+4.9 Interfacing to the OS ('cd', 'pwd', 'source', 'shell')
+==========================================================
+
+'cd'
+
+     Set working directory to DIRECTORY for debugger and program being
+     debugged.  The change does not take effect for the program being
+     debugged until the next time it is started.
+
+'pwd'
+
+     Prints the working directory as the program sees things.
+
+'source FILENAME'
+
+     Reads each line of _filename_ and runs that as a debugger command.
+
+'shell COMMAND STRING'
+'!'
+
+     If you need to execute occasional shell commands during your
+     debugging session, there is no need to leave or suspend the GNU
+     Make debugger; you can just use the 'shell' command or its alias
+     '!'.
+
+     Invoke a shell to execute COMMAND STRING.
+
+
+File: remake.info,  Node: Controlling Make,  Prev: Interfacing to the OS,  Up: Debugger Command Reference
+
+4.10 Controlling the GNU Make debugger ('set')
+==============================================
+
+You can alter the way GNU Remake interacts with you in various ways
+given below.
+
+* Menu:
+
+* set basename::      Annotation Level (set basename)
+* set ignore-errors:: Ignoring errors
+* set trace::         Set tracing
+* set variable::      Set a variable to an expanded string
+* setq::              Set a variable to an unexpanded string
+
+
+File: remake.info,  Node: set basename,  Next: set ignore-errors,  Up: Controlling Make
+
+4.10.1 Basename ('set basename')
+--------------------------------
+
+'set basename ON/OFF/TOGGLE'
+     The basename level controls how much information the GNU Make
+     debugger prints when it has to show a file name.  When this is on
+     we just show the base filename part an not the path info.  When the
+     GNU Make debugger is run as a subprocess of GNU Emacs of DDD, it is
+     important to show full pathnames.
+
+
+File: remake.info,  Node: set ignore-errors,  Next: set trace,  Prev: set basename,  Up: Controlling Make
+
+4.10.2 Ignoring errors ('set ignore-errors')
+--------------------------------------------
+
+'set ignore-errors ON/OFF/TOGGLE'
+
+     Use this to change whether you ignore errors.  Turning it on is as
+     though you started GNU Remake with the '--ignore-errors' option.
+
+
+File: remake.info,  Node: set trace,  Next: set variable,  Prev: set ignore-errors,  Up: Controlling Make
+
+4.10.3 Tracing ('set basename')
+-------------------------------
+
+'set trace ON/OFF/TOGGLE'
+
+     Use this to change whether you want tracing or not.  Turning it on
+     is as though you started GNU Remake with the '--trace' option.
+
+
+File: remake.info,  Node: set variable,  Next: setq,  Prev: set trace,  Up: Controlling Make
+
+4.10.4 Setting a variable to an expanded string ('set variable')
+----------------------------------------------------------------
+
+'set varible VARIABLE STRING'
+
+     Sets VARIABLE to the value STRING, but STRING is expanded first as
+     it would be when you use 'expand'.
+
+   One nice use of set variable in debugging is to set the value of
+'SHELL' to include tracing in that.  Here's an example:
+
+     remake<0> set variable SHELL $(SHELL) -x
+     Variable SHELL now has value '/bin/sh -x'
+     remake<1>
+
+   Now we'll show this in a real example - stepping (or actually
+"next"ing though the top-level makefile in the source distribution for
+GNU Remake:
+
+     $ remake -X
+     Reading makefiles...
+
+     (/tmp/remake/Makefile:256)
+     Makefile.in: Makefile.am config/readline.m4 gettext.m4 iconv.m4 lib-ld.m4 lib-link.m4 lib-prefix.m4 progtest.m4 acinclude.m4 configure.ac aclocal.m4
+     remake<0> set variable SHELL $(SHELL) -x
+     Variable SHELL now has value '/bin/sh -x'
+     remake<1> n
+     Updating goal targets....
+      /tmp/remake/Makefile:250	File `all' does not exist.
+
+     (/tmp/remake/Makefile:250)
+     all: config.h
+     remake<2> p SHELL
+     Makefile:156 (origin: debugger) SHELL = /bin/bash -x
+     remake<3> n
+        Prerequisite `stamp-h1' is newer than target `config.h'.
+       /tmp/remake/Makefile:288	Must remake target `config.h'.
+
+     (/tmp/remake/Makefile:288)
+     config.h: stamp-h1
+     remake<4> n
+     if test ! -f config.h; then \
+       rm -f stamp-h1; \
+       remake stamp-h1; \
+     else :; fi
+     + test '!' -f config.h
+     + :
+       /tmp/remake/Makefile:288	Successfully remade target file `config.h'.
+
+   Above we see the script source code followed by the trace information
+- we took the "else" branch which has the null statement ":".
+
+
+File: remake.info,  Node: setq,  Prev: set variable,  Up: Controlling Make
+
+4.10.5 Setting a variable to an unexpanded string ('setq')
+----------------------------------------------------------
+
+'setq VARIABLE STRING'
+
+     Sets VARIABLE to the value STRING, but STRING is _not_ expanded
+     first as it is not you use 'print'.
+
+
+File: remake.info,  Node: Front Ends,  Next: Make Debugger Bugs,  Prev: Debugger Command Reference,  Up: Top
+
+5 Using the GNU Make debugger from a front-end user interface
+*************************************************************
+
+The only front-ends that can use the GNU Make debugger as a back-end
+debugger is GNU Emacs and DDD.
+
+* Menu:
+
+* Emacs::      Using the GNU Make debugger from GNU Emacs
+* DDD::        Using the GNU Make debugger from DDD
+
+
+File: remake.info,  Node: Emacs,  Next: DDD,  Up: Front Ends
+
+5.1 Using the GNU Make debugger from GNU Emacs
+==============================================
+
+There is a multi-debugger emacs interface which includes 'remake'.  This
+is distributed as a separate program and is available via the Emacs
+package managers ELPA or MELPA. See <https://github.com/realgud/realgud>
+
+
+File: remake.info,  Node: DDD,  Prev: Emacs,  Up: Front Ends
+
+5.2 Using GNU Remake from DDD
+=============================
+
+GNU Remake support is rather new in DDD.  As a programming language, GNU
+Remake is not feature rich: there are no record structures or hash
+tables (yet), no pointers, package variable scoping or methods.  So much
+of the data display and visualization features of DDD are disabled.
+
+   As with any scripting or interpreted language (e.g.  Perl), one can't
+step by a single machine-language instruction.  So the ddd Stepi/Nexti
+commands are disabled.
+
+
+File: remake.info,  Node: Make Debugger Bugs,  Next: History and Acknowledgments,  Prev: Front Ends,  Up: Top
+
+6 Reporting Bugs
+****************
+
+Your bug reports play an essential role in making the GNU Remake
+reliable.
+
+   Reporting a bug may help you by bringing a solution to your problem,
+or it may not.  But in any case the principal function of a bug report
+is to help the entire community by making the next version of GNU Remake
+work better.  Bug reports are your contribution to the maintenance of
+GNU Remake.
+
+   In order for a bug report to serve its purpose, you must include the
+information that enables us to fix the bug.
+
+* Menu:
+
+* Bug Criteria::                Have you found a bug?
+* Bug Reporting::               How to report bugs
+
+
+File: remake.info,  Node: Bug Criteria,  Next: Bug Reporting,  Up: Make Debugger Bugs
+
+6.1 Have you found a bug?
+=========================
+
+If you are not sure whether you have found a bug, here are some
+guidelines:
+
+   * If the debugger gets a fatal signal, for any input whatever, that
+     is a GNU Remake bug.  Reliable debuggers never crash.
+
+   * If GNU Remake produces an error message for valid input, that is a
+     bug.  (Note that if you're cross debugging, the problem may also be
+     somewhere in the connection to the target.)
+
+   * If GNU Remake does not produce an error message for invalid input,
+     that is a bug.  However, you should note that your idea of "invalid
+     input" might be our idea of "an extension" or "support for
+     traditional practice".
+
+   * If you are an experienced user of debugging tools, your suggestions
+     for improvement of GNU Remake are welcome in any case.
+
+
+File: remake.info,  Node: Bug Reporting,  Prev: Bug Criteria,  Up: Make Debugger Bugs
+
+6.2 How to report bugs
+======================
+
+Submit bug reports for GNU Remake to
+<https://github.com/rocky/remake/issues>
+
+   The fundamental principle of reporting bugs usefully is this: *report
+all the facts*.  If you are not sure whether to state a fact or leave it
+out, state it!
+
+   Often people omit facts because they think they know what causes the
+problem and assume that some details do not matter.  Thus, you might
+assume that the name of the variable you use in an example does not
+matter.  Well, probably it does not, but one cannot be sure.  Perhaps
+the bug is a stray memory reference which happens to fetch from the
+location where that name is stored in memory; perhaps, if the name were
+different, the contents of that location would fool the debugger into
+doing the right thing despite the bug.  Play it safe and give a
+specific, complete example.  That is the easiest thing for you to do,
+and the most helpful.
+
+   Keep in mind that the purpose of a bug report is to enable us to fix
+the bug.  It may be that the bug has been reported previously, but
+neither you nor we can know that unless your bug report is complete and
+self-contained.
+
+   Sometimes people give a few sketchy facts and ask, "Does this ring a
+bell?"  Those bug reports are useless, and we urge everyone to _refuse
+to respond to them_ except to chide the sender to report bugs properly.
+
+   To enable us to fix the bug, you should include all these things:
+
+   * The version of GNU Remake.  GNU Remake announces it if you start
+     with no arguments; you can also print it at any time using
+     'version' command.
+
+     Without this, we will not know whether there is any point in
+     looking for the bug in the current version of GNU Remake.
+
+   * The type of machine you are using, and the operating system name
+     and version number.
+
+   * What compiler (and its version) was used to compile GNU
+     Remake--e.g.  "'gcc'-4.4.3-4ubuntu5".
+
+   * The command arguments you gave the compiler to compile your example
+     and observe the bug.  For example, did you use '-O'?  To guarantee
+     you will not omit something important, list them all.  A copy of
+     the Makefile (or the output from make) is sufficient.
+
+     If we were to try to guess the arguments, we would probably guess
+     wrong and then we might not encounter the bug.
+
+   * A complete input script, and all necessary source files, that will
+     reproduce the bug.
+
+   * A description of what behavior you observe that you believe is
+     incorrect.  For example, "It gets a fatal signal."
+
+     Of course, if the bug is that GNU Remake gets a fatal signal, then
+     we will certainly notice it.  But if the bug is incorrect output,
+     we might not notice unless it is glaringly wrong.  You might as
+     well not give us a chance to make a mistake.
+
+     Even if the problem you experience is a fatal signal, you should
+     still say so explicitly.  Suppose something strange is going on,
+     such as, your copy of GNU Remake is out of synchronization, or you
+     have encountered a bug in the C library on your system.  (This has
+     happened!)  Your copy might crash and ours would not.  If you told
+     us to expect a crash, then when ours fails to crash, we would know
+     that the bug was not happening for us.  If you had not told us to
+     expect a crash, then we would not be able to draw any conclusion
+     from our observations.
+
+   * If you wish to suggest changes to the GNU Remake source, send us
+     context diffs.  If you even discuss something in the GNU Remake
+     source, refer to it by context, not by line number.
+
+     The line numbers in our development sources will not match those in
+     your sources.  Your line numbers would convey no useful information
+     to us.
+
+   Here are some things that are not necessary:
+
+   * A description of the envelope of the bug.
+
+     Often people who encounter a bug spend a lot of time investigating
+     which changes to the input file will make the bug go away and which
+     changes will not affect it.
+
+     This is often time consuming and not very useful, because the way
+     we will find the bug is by running a single example under the
+     debugger with breakpoints, not by pure deduction from a series of
+     examples.  We recommend that you save your time for something else.
+
+     Of course, if you can find a simpler example to report _instead_ of
+     the original one, that is a convenience for us.  Errors in the
+     output will be easier to spot, running under the debugger will take
+     less time, and so on.
+
+     However, simplification is not vital; if you do not want to do
+     this, report the bug anyway and send us the entire test case you
+     used.
+
+   * A patch for the bug.
+
+     A patch for the bug does help us if it is a good one.  But do not
+     omit the necessary information, such as the test case, on the
+     assumption that a patch is all we need.  We might see problems with
+     your patch and decide to fix the problem another way, or we might
+     not understand it at all.
+
+     Sometimes with a program as complicated as GNU Remake it is very
+     hard to construct an example that will make the program follow a
+     certain path through the code.  If you do not send us the example,
+     we will not be able to construct one, so we will not be able to
+     verify that the bug is fixed.
+
+     And if we cannot understand what bug you are trying to fix, or why
+     your patch should be an improvement, we will not install it.  A
+     test case will help us to understand.
+
+   * A guess about what the bug is or what it depends on.
+
+     Such guesses are usually wrong.  Even we cannot guess right about
+     such things without first using the debugger to find the facts.
+
+
+File: remake.info,  Node: History and Acknowledgments,  Next: Command Index,  Prev: Make Debugger Bugs,  Up: Top
+
+7 History and Acknowledgments
+*****************************
+
+My idea for a debugger for GNU Remake came about on working on a
+debugger for bash (<http://bashdb.sourceforge.net>).  I knew the bash
+debugger was good enough when it was able to debug autoconf-generated
+script which are tens of thousands of lines long.
+
+   But almost immediately after scaling this new height, I became sunk
+deep in depression when I realized that to debug the configuration mess
+I also needed to deal with Makefiles, if not also autoconf, and automake
+as well.
+
+   After seeing an article on the auto-configuration mess
+<http://freshmeat.net/articles/view/889> I posted a query to ask if
+anyone was interested in writing a debugger for GNU Remake.
+
+   Almost year goes by and no takers.  To put this in perspective.  it
+was over a decade before someone (me) did anything about a debugger for
+bash.  I was reminded of my query by accident when I got a query from
+one of the GNU mailing lists that I am on regarding a problem in email
+on the GNU Make mailing list.
+
+   That jogged my memory.  So I suggested the idea of a debugger to this
+list, and was told how incredibly difficult it would be to write a
+debugger and how incredibly unique GNU Make is.  At that point I looked
+into the code and to my surprise and delight I found that in contrast to
+BASH the code, GNU Make is much smaller and written in a more modern
+coding style (although certainly it could use much improvement).  In
+fact, it had most of the information stored that would be helpful in a
+debugger.  All I would need to do is add a GNU readline for the debug
+loop, extend to save a target stack and track line numbers and report
+line numbers better.  But this last part I'd been through with the bash
+debugger.
+
+   All in all, I've been very pleased at how far I've been able to get
+with much less effort than needed for the bash debugger.  That's not to
+say that much work isn't still needed or that the overall design
+couldn't be improved.
+
+   This documentation was modified from the GNU Bash Debugger (bashdb)
+Reference manual which in turn was modified from GNU Bash debugger
+(gdb).
+
+   Many thanks to Yaroslav Halchenko who moved the CVS code over to git
+on github.  He is also packages this for Debian.  And thanks to all the
+other packagers for the other OS distributions.
+
+   Additions to this section are particularly welcome.  If you or your
+friends (or enemies, to be evenhanded) have been unfairly omitted from
+this list, we would like to add your names!
+
+
+File: remake.info,  Node: Command Index,  Next: General Index,  Prev: History and Acknowledgments,  Up: Top
+
+Command Index
+*************
+
+ [index ]
+* Menu:
+
+* ! (shell):                             Interfacing to the OS.
+                                                               (line 20)
+* # comment:                             Command Syntax.       (line 19)
+* b (break):                             Set Breaks.           (line  6)
+* backtrace:                             Backtrace.            (line 15)
+* break:                                 Set Breaks.           (line  6)
+* c (continue):                          Continue.             (line  7)
+* cd DIRECTORY:                          Interfacing to the OS.
+                                                               (line  6)
+* d (delete):                            Delete Breaks.        (line 15)
+* D (down):                              Selection.            (line 16)
+* delete:                                Delete Breaks.        (line 15)
+* down:                                  Selection.            (line 16)
+* edit:                                  Edit.                 (line 23)
+* expand:                                Expand.               (line  7)
+* F (finish):                            Finish.               (line  6)
+* finish:                                Finish.               (line  6)
+* frame:                                 Selection.            (line 36)
+* h (help):                              Help.                 (line  9)
+* i (info):                              Help.                 (line 65)
+* i b (info files):                      Info.                 (line 41)
+* i p (info files):                      Info.                 (line 29)
+* i t (info targets):                    Info.                 (line 12)
+* info:                                  Help.                 (line 65)
+* info break:                            Info.                 (line 41)
+* info line:                             Info.                 (line 50)
+* info lines:                            Info.                 (line 60)
+* info locals:                           Info.                 (line 72)
+* info makefiles:                        Info.                 (line 75)
+* info program:                          Info.                 (line 29)
+* info set:                              Show.                 (line 14)
+* info targets:                          Info.                 (line 12)
+* info variables:                        Info Variables.       (line  7)
+* info warranty:                         Info.                 (line 80)
+* list:                                  List.                 (line  6)
+* load:                                  Load.                 (line  7)
+* n (next):                              Next.                 (line  6)
+* next:                                  Next.                 (line  6)
+* p (print):                             Print.                (line 10)
+* print:                                 Print.                (line  6)
+* print <1>:                             Print.                (line 10)
+* pwd:                                   Interfacing to the OS.
+                                                               (line 12)
+* q (quit):                              Quit.                 (line  6)
+* quit [RETURN-CODE]:                    Quit.                 (line  6)
+* RET (repeat last command):             Command Syntax.       (line 16)
+* s (step):                              Step.                 (line  6)
+* set:                                   Set.                  (line  6)
+* set basename:                          set basename.         (line  6)
+* set ignore-errors:                     set ignore-errors.    (line  6)
+* set trace:                             set trace.            (line  6)
+* set variable VARIABLE STRING:          set variable.         (line  7)
+* setq VARIABLE STRING:                  setq.                 (line  6)
+* shell:                                 Interfacing to the OS.
+                                                               (line 20)
+* show:                                  Show.                 (line  6)
+* show command:                          Show.                 (line 21)
+* show version:                          Show.                 (line 24)
+* show warranty:                         Show.                 (line 33)
+* skip:                                  Skip.                 (line  6)
+* source FILENAME:                       Interfacing to the OS.
+                                                               (line 16)
+* step into:                             Step.                 (line  6)
+* up:                                    Selection.            (line 11)
+* where:                                 Backtrace.            (line 31)
+* write [TARGET FILENAME|HERE]:          Write.                (line  6)
+* x (expand):                            Expand.               (line  7)
+
+
+File: remake.info,  Node: General Index,  Prev: Command Index,  Up: Top
+
+General Index
+*************
+
+ [index ]
+* Menu:
+
+* -!:                                    Starting the GNU Make debugger.
+                                                               (line 80)
+* --debugger:                            Starting the GNU Make debugger.
+                                                               (line 36)
+* --no-extended-errors:                  Starting the GNU Make debugger.
+                                                               (line 61)
+* --post-mortem:                         Starting the GNU Make debugger.
+                                                               (line 80)
+* --profile:                             Profiling and Visualization.
+                                                               (line  6)
+* --search-parent:                       Searching.            (line  6)
+* --trace:                               Starting the GNU Make debugger.
+                                                               (line 66)
+* -c:                                    Searching.            (line  6)
+* -x:                                    Improved-Tracing.     (line  6)
+* -X:                                    Starting the GNU Make debugger.
+                                                               (line 36)
+* -x <1>:                                Starting the GNU Make debugger.
+                                                               (line 66)
+* backtraces:                            Backtrace.            (line  6)
+* breakpoints:                           Breakpoints.          (line  6)
+* bug criteria:                          Bug Criteria.         (line  6)
+* bug reports:                           Bug Reporting.        (line  6)
+* bugs:                                  Make Debugger Bugs.   (line  6)
+* change working directory:              Interfacing to the OS.
+                                                               (line  6)
+* comment:                               Command Syntax.       (line 19)
+* continuing:                            Resuming Execution.   (line  6)
+* crash, debugger:                       Bug Criteria.         (line  9)
+* current stack frame:                   Selection.            (line 36)
+* DDD:                                   DDD.                  (line  6)
+* debugger bugs, reporting:              Bug Reporting.        (line  6)
+* debugger crash:                        Bug Criteria.         (line  9)
+* delete breakpoints:                    Delete Breaks.        (line 15)
+* deleting breakpoints:                  Delete Breaks.        (line  6)
+* Emacs:                                 Emacs.                (line  6)
+* error on valid input:                  Bug Criteria.         (line 12)
+* examining data:                        Print.                (line  6)
+* fatal signal:                          Bug Criteria.         (line  9)
+* fatal signals:                         Signals.              (line 17)
+* frame number:                          Frames.               (line 22)
+* frame, definition:                     Frames.               (line  6)
+* GNU Emacs:                             Emacs.                (line  6)
+* history:                               Show.                 (line 21)
+* initial frame:                         Frames.               (line 13)
+* innermost frame:                       Frames.               (line 13)
+* interrupt:                             Quitting the GNU Make debugger.
+                                                               (line  6)
+* invalid input:                         Bug Criteria.         (line 16)
+* json:                                  Profiling and Visualization.
+                                                               (line 26)
+* latest breakpoint:                     Set Breaks.           (line  6)
+* on-line documentation:                 Help.                 (line  6)
+* outermost frame:                       Frames.               (line 13)
+* print working directory:               Interfacing to the OS.
+                                                               (line 12)
+* printing data:                         Print.                (line  6)
+* profiling:                             Profiling and Visualization.
+                                                               (line  6)
+* repeating next/step commands:          Command Syntax.       (line 16)
+* reporting bugs:                        Make Debugger Bugs.   (line  6)
+* resuming execution:                    Resuming Execution.   (line  6)
+* selected frame:                        Stack.                (line 15)
+* shell escape:                          Interfacing to the OS.
+                                                               (line 20)
+* signals:                               Signals.              (line  6)
+* stack traces:                          Backtrace.            (line  6)
+* stepping:                              Resuming Execution.   (line  6)
+* target stack:                          Stack.                (line  9)
+* target stack frame:                    Frames.               (line  6)
+* tracebacks:                            Backtrace.            (line  6)
+* version number:                        Show.                 (line 24)
+
+
+
+Tag Table:
+Node: Top1157
+Node: Summary2126
+Node: Sample Sessions3282
+Node: Tracing Not4047
+Ref: Tracing Not-Footnote-18308
+Node: Tracing8522
+Ref: Tracing-Footnote-114304
+Ref: Tracing-Footnote-214369
+Node: Tracing a Real Makefile14511
+Node: Simple Debugging20121
+Node: Debugging Make Variables26539
+Node: Debugging Shell Commands28781
+Node: Features32280
+Node: Profiling and Visualization32816
+Ref: Profiling and Visualization-Footnote-137447
+Ref: Profiling and Visualization-Footnote-237504
+Ref: Profiling and Visualization-Footnote-337562
+Node: Comments37656
+Node: Searching38824
+Node: Improved-Tracing39468
+Node: Invocation40137
+Node: Starting the GNU Make debugger41266
+Node: Quitting the GNU Make debugger45784
+Node: Debugger Command Reference46284
+Node: Command Syntax47497
+Node: Help48490
+Node: Quit51711
+Node: Stopping52716
+Node: Breakpoints53743
+Node: Set Breaks54494
+Node: Delete Breaks55551
+Node: Resuming Execution56230
+Node: Next56961
+Node: Step57730
+Node: Finish58662
+Node: Skip59290
+Node: Continue59639
+Node: Signals60477
+Node: Information61577
+Node: Info62213
+Node: Set64713
+Node: Show65075
+Node: Stack66539
+Node: Frames68001
+Node: Backtrace69372
+Node: Selection72242
+Node: Data73850
+Node: Print74348
+Node: Expand75295
+Node: Target76522
+Node: Write79950
+Node: Info Variables80569
+Node: Files81779
+Node: Edit82166
+Node: List83093
+Node: Load83793
+Node: Interfacing to the OS84501
+Node: Controlling Make85394
+Node: set basename85936
+Node: set ignore-errors86447
+Node: set trace86825
+Node: set variable87167
+Node: setq89054
+Node: Front Ends89386
+Node: Emacs89844
+Node: DDD90218
+Node: Make Debugger Bugs90793
+Node: Bug Criteria91548
+Node: Bug Reporting92465
+Node: History and Acknowledgments98324
+Node: Command Index100959
+Node: General Index105967
+
+End Tag Table
+
+
+Local Variables:
+coding: utf-8
+End:
